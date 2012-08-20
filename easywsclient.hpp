@@ -176,15 +176,15 @@ struct _RealWebSocket : public WebSocket
             if (ws.N0 < 126) {
                 ws.N = ws.N0;
                 i = 2;
-            }     
+            }
             else if (ws.N0 == 126) {
                 ws.N = 0;
                 ws.N |= ((uint64_t) data[2]) << 8;
                 ws.N |= ((uint64_t) data[3]) << 0;
                 i = 4;
-            }         
+            }
             else if (ws.N0 == 127) {
-                ws.N = 0;   
+                ws.N = 0;
                 ws.N |= ((uint64_t) data[2]) << 56;
                 ws.N |= ((uint64_t) data[3]) << 48;
                 ws.N |= ((uint64_t) data[4]) << 40;
@@ -194,13 +194,13 @@ struct _RealWebSocket : public WebSocket
                 ws.N |= ((uint64_t) data[8]) << 8;
                 ws.N |= ((uint64_t) data[9]) << 0;
                 i = 10;
-            }     
+            }
             if (ws.mask) {
                 ws.masking_key[0] = ((uint8_t) data[i+0]) << 0;
                 ws.masking_key[1] = ((uint8_t) data[i+1]) << 0;
                 ws.masking_key[2] = ((uint8_t) data[i+2]) << 0;
                 ws.masking_key[3] = ((uint8_t) data[i+3]) << 0;
-            } 
+            }
             else {
                 ws.masking_key[0] = 0;
                 ws.masking_key[1] = 0;
@@ -271,12 +271,12 @@ int WebSocket::hostname_connect(std::string hostname, int port) {
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     snprintf(sport, 16, "%d", port);
-    if ((ret = getaddrinfo(hostname.c_str(), sport, &hints, &result)) != 0) 
+    if ((ret = getaddrinfo(hostname.c_str(), sport, &hints, &result)) != 0)
     {
       fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
       return 1;
     }
-    for(p = result; p != NULL; p = p->ai_next) 
+    for(p = result; p != NULL; p = p->ai_next)
     {
         sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
         if (sockfd == -1) { continue; }
