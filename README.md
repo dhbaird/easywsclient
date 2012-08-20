@@ -44,7 +44,7 @@ The interface looks somewhat like this:
     // Should work with C functions, C++ functors, and C++11 std::function and
     // lambda:
     template<class Callable>
-    void dispatch(Callable & callable);
+    void dispatch(Callable callable);
 
     // Sends a TEXT type message (gets put into a buffer for poll() to send
     // later):
