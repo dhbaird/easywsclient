@@ -1,8 +1,31 @@
 easywsclient
 ============
 
-A header-only WebSocket client for C++. Depends only on the standard libraries.
-Can make optional use of C++11 features (i.e. std::function and lambda).
+Easywsclient is a single-file, header-only WebSocket
+client for C++. It depends only on the standard libraries.
+Can make optional use of C++11 features (i.e. std::function and
+[lambda](http://en.wikipedia.org/wiki/Anonymous_function#C.2B.2B)).
+Supported is [RFC 6455](http://tools.ietf.org/html/rfc6455) Version
+13 WebSocket.
+
+Rationale: This library is intended to help a C++ project start using
+WebSocket rapidly.  It does not require your project to derive from any
+spooky/mystical interfaces (at most, it may need a functor, but that's
+pretty conventional).  It does not require you to be using this-or-that
+particular asynchronous library.  It only requires your OS to support
+sockets!
+
+However! This is probably not the end-point for your project,
+as this library puts a lot of crap into the header file
+(easier to use, but eliminates the benefits of [separate
+compilation](http://en.wikipedia.org/wiki/Single_Compilation_Unit)).
+Also, this library does not work in cooperation with any asynchronous
+event processing scheduler. The good news is that the code here is
+straightforward and can serve as a reference to build something tailored
+for your needs.
+
+Happy hacking! Drop me a line if you do anything cool with this :)
+...complaints welcome too.
 
 Usage
 =====
