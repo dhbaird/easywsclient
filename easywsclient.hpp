@@ -3,6 +3,8 @@
 
 // This code comes from,
 // https://github.com/dhbaird/easywsclient
+// To get the latest version,
+// wget https://raw.github.com/dhbaird/easywsclient/master/easywsclient.hpp
 
 #include <fcntl.h>
 #include <netdb.h>
