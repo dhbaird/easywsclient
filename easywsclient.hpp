@@ -21,9 +21,60 @@
 
 namespace easywsclient {
 
-struct WebSocket
-{
+struct WebSocket {
     typedef WebSocket * pointer;
+
+    struct Callback { virtual void operator()(const std::string & message) = 0; };
+
+    // Factories (in the spirit of PIMPL):
+    static pointer create_dummy();
+    static pointer from_url(std::string url);
+    static int hostname_connect(std::string hostname, int port); // <-- convenience function
+
+    // Interfaces:
+    virtual ~WebSocket() { }
+    virtual void poll() = 0;
+    virtual void send(std::string message) = 0;
+    template<class Callable>
+    void dispatch(Callable callable) {
+        // ...don't you just want to love C++, right about here?
+        // (N.B. this is why the C++11 lambda syntax was invented)
+        struct _Callback : public Callback {
+            Callable & callable;
+            _Callback(Callable & callable) : callable(callable) { }
+            void operator()(const std::string & message) { callable(message); }
+        };
+        _Callback callback(callable);
+        _dispatch(callback);
+    }
+
+  private:
+    virtual void _dispatch(Callback & callable) = 0;
+};
+
+
+
+
+
+
+// Everything in this #if block could be separated out into a .cpp file, if you
+// so desired,
+#if defined(EASYWSCLIENT_COMPILATION_UNIT)
+
+struct _DummyWebSocket : public WebSocket
+{
+    void poll() { }
+    void send(std::string message) { }
+    void _dispatch(Callback & callable) { }
+};
+
+
+
+
+
+
+struct _RealWebSocket : public WebSocket
+{
     #if 0
     http://tools.ietf.org/html/rfc6455#section-5.2  Base Framing Protocol
 
@@ -69,85 +120,8 @@ struct WebSocket
     int sockfd;
     bool closed;
 
-    static int hostname_connect(std::string hostname, int port) {
-        struct addrinfo hints;
-        struct addrinfo *result;
-        struct addrinfo *p;
-        int ret;
-        int sockfd = -1;
-        char sport[16];
-        memset(&hints, 0, sizeof(hints));
-        hints.ai_family = AF_UNSPEC;
-        hints.ai_socktype = SOCK_STREAM;
-        snprintf(sport, 16, "%d", port);
-        if ((ret = getaddrinfo(hostname.c_str(), sport, &hints, &result)) != 0) 
-        {
-          fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
-          return 1;
-        }
-        for(p = result; p != NULL; p = p->ai_next) 
-        {
-            sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-            if (sockfd == -1) { continue; }
-            if (connect(sockfd, p->ai_addr, p->ai_addrlen) != -1) {
-                break;
-            }
-            close(sockfd);
-            sockfd = -1;
-        }
-        freeaddrinfo(result);
-        return sockfd;
-    }
 
-    static pointer from_url(std::string url) {
-        char host[128];
-        int port;
-        char path[128];
-        if (false) { }
-        else if (sscanf(url.c_str(), "ws://%[^:]:%d/%s", host, &port, path) == 3) {
-        }
-        else if (sscanf(url.c_str(), "ws://%[^/]/%s", host, path) == 2) {
-            port = 80;
-        }
-        else {
-            fprintf(stderr, "ERROR: Could not parse WebSocket url: %s\n", url.c_str());
-            return NULL;
-        }
-        int sockfd = hostname_connect(host, port);
-        if (sockfd == -1) {
-            fprintf(stderr, "Unable to connect to %s:%d\n", host, port);
-            return NULL;
-        }
-        {
-            // XXX: this should be done non-blocking,
-            char line[256];
-            int status;
-            int i;
-            snprintf(line, 256, "GET /%s HTTP/1.1\r\n", path); ::send(sockfd, line, strlen(line), 0);
-            snprintf(line, 256, "Host: %s:%d\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
-            snprintf(line, 256, "Upgrade: websocket\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
-            snprintf(line, 256, "Connection: Upgrade\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
-            snprintf(line, 256, "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
-            snprintf(line, 256, "Sec-WebSocket-Version: 13\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
-            snprintf(line, 256, "\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
-            for (i = 0; i < 2 || i < 255 && line[i-2] != '\r' && line[i-1] != '\n'; ++i) { if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; } }
-            line[i] = 0;
-            if (i == 255) { fprintf(stderr, "ERROR: Got invalid status line connecting to: %s\n", url.c_str()); return NULL; }
-            if (sscanf(line, "HTTP/1.1 %d", &status) != 1 || status != 101) { fprintf(stderr, "ERROR: Got bad status connecting to %s: %s", url.c_str(), line); return NULL; }
-            // TODO: verify response headers,
-            while (true) {
-                for (i = 0; i < 2 || i < 255 && line[i-2] != '\r' && line[i-1] != '\n'; ++i) { if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; } }
-                if (line[0] == '\r' && line[1] == '\n') { break; }
-            }
-        }
-        int flag = 1;
-        setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char*) &flag, sizeof(flag)); // Disable Nagle's algorithm
-        fcntl(sockfd, F_SETFL, O_NONBLOCK);
-        fprintf(stderr, "Connected to: %s\n", url.c_str());
-        return pointer(new WebSocket(sockfd));
-    }
-
-    WebSocket(int sockfd) : sockfd(sockfd), closed(false) {
+    _RealWebSocket(int sockfd) : sockfd(sockfd), closed(false) {
     }
 
     void poll() {
@@ -184,8 +158,9 @@ struct WebSocket
     // Callable must have signature: void(const std::string & message).
     // Should work with C functions, C++ functors, and C++11 std::function and
     // lambda:
-    template<class Callable>
-    void dispatch(Callable callable) {
+    //template<class Callable>
+    //void dispatch(Callable callable) {
+    virtual void _dispatch(WebSocket::Callback & callable) {
         // TODO: consider acquiring a lock on rxbuf...
         while (true) {
             wsheader_type ws;
@@ -280,6 +255,95 @@ struct WebSocket
     }
 
 };
+
+
+
+
+
+int WebSocket::hostname_connect(std::string hostname, int port) {
+    struct addrinfo hints;
+    struct addrinfo *result;
+    struct addrinfo *p;
+    int ret;
+    int sockfd = -1;
+    char sport[16];
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    snprintf(sport, 16, "%d", port);
+    if ((ret = getaddrinfo(hostname.c_str(), sport, &hints, &result)) != 0) 
+    {
+      fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
+      return 1;
+    }
+    for(p = result; p != NULL; p = p->ai_next) 
+    {
+        sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
+        if (sockfd == -1) { continue; }
+        if (connect(sockfd, p->ai_addr, p->ai_addrlen) != -1) {
+            break;
+        }
+        close(sockfd);
+        sockfd = -1;
+    }
+    freeaddrinfo(result);
+    return sockfd;
+}
+
+WebSocket::pointer WebSocket::create_dummy() {
+    static pointer dummy = pointer(new _DummyWebSocket);
+    return dummy;
+}
+
+WebSocket::pointer WebSocket::from_url(std::string url) {
+    char host[128];
+    int port;
+    char path[128];
+    if (false) { }
+    else if (sscanf(url.c_str(), "ws://%[^:]:%d/%s", host, &port, path) == 3) {
+    }
+    else if (sscanf(url.c_str(), "ws://%[^/]/%s", host, path) == 2) {
+        port = 80;
+    }
+    else {
+        fprintf(stderr, "ERROR: Could not parse WebSocket url: %s\n", url.c_str());
+        return NULL;
+    }
+    int sockfd = hostname_connect(host, port);
+    if (sockfd == -1) {
+        fprintf(stderr, "Unable to connect to %s:%d\n", host, port);
+        return NULL;
+    }
+    {
+        // XXX: this should be done non-blocking,
+        char line[256];
+        int status;
+        int i;
+        snprintf(line, 256, "GET /%s HTTP/1.1\r\n", path); ::send(sockfd, line, strlen(line), 0);
+        snprintf(line, 256, "Host: %s:%d\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
+        snprintf(line, 256, "Upgrade: websocket\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
+        snprintf(line, 256, "Connection: Upgrade\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
+        snprintf(line, 256, "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
+        snprintf(line, 256, "Sec-WebSocket-Version: 13\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
+        snprintf(line, 256, "\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
+        for (i = 0; i < 2 || i < 255 && line[i-2] != '\r' && line[i-1] != '\n'; ++i) { if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; } }
+        line[i] = 0;
+        if (i == 255) { fprintf(stderr, "ERROR: Got invalid status line connecting to: %s\n", url.c_str()); return NULL; }
+        if (sscanf(line, "HTTP/1.1 %d", &status) != 1 || status != 101) { fprintf(stderr, "ERROR: Got bad status connecting to %s: %s", url.c_str(), line); return NULL; }
+        // TODO: verify response headers,
+        while (true) {
+            for (i = 0; i < 2 || i < 255 && line[i-2] != '\r' && line[i-1] != '\n'; ++i) { if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; } }
+            if (line[0] == '\r' && line[1] == '\n') { break; }
+        }
+    }
+    int flag = 1;
+    setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char*) &flag, sizeof(flag)); // Disable Nagle's algorithm
+    fcntl(sockfd, F_SETFL, O_NONBLOCK);
+    fprintf(stderr, "Connected to: %s\n", url.c_str());
+    return pointer(new _RealWebSocket(sockfd));
+}
+
+#endif // defined(EASYWSCLIENT_COMPILATION_UNIT)
 
 } // namespace easywsclient
 

@@ -15,9 +15,14 @@ pretty conventional).  It does not require you to be using this-or-that
 particular asynchronous library.  It only requires your OS to support
 sockets!
 
+More rationale: So, you were handed a project that needs a WebSocket.
+You must do a demo right away. You don't have time to figure out how the
+project's magic asynchronous event processing works (or worse, it doesn't
+have any consistency). So what do you do? Panic? No. Use this library.
+
 However! This is probably not the end-point for your project,
 as this library puts a lot of crap into the header file
-(easier to use, but eliminates the benefits of [separate
+(easier to use, but reduces the benefits of [separate
 compilation](http://en.wikipedia.org/wiki/Single_Compilation_Unit)).
 Also, this library does not work in cooperation with any asynchronous
 event processing scheduler. The good news is that the code here is
@@ -35,6 +40,8 @@ The interface looks somewhat like this:
 
     // Factory method to create a WebSocket:
     static pointer from_url(std::string url);
+    // Factory method to create a dummy WebSocket (all operations are noop):
+    static pointer create_dummy();
 
     // Function to perform actual network send()/recv() I/O:
     void poll();
@@ -53,14 +60,26 @@ The interface looks somewhat like this:
 
 Put altogether, this will look something like this:
 
-    using easywsclient::WebSocket;
-    WebSocket::pointer ws = WebSocket::from_url("ws://localhost:8126/foo");
-    assert(ws);
-    while (true) {
-        ws->poll();
-        ws->send("hello");
-        ws->dispatch(handle_message);
-        // ...do more stuff...
+    // This #define must occur in _exactly one_ of your .cpp files, before
+    // #including the header. (This will put private implementation details in
+    // just that one file.):
+    #define EASYWSCLIENT_COMPILATION_UNIT // <-- must be put in exactly one .cpp file
+    #include "easywsclient.hpp"
+
+    int
+    main()
+    {
+        ...
+        using easywsclient::WebSocket;
+        WebSocket::pointer ws = WebSocket::from_url("ws://localhost:8126/foo");
+        assert(ws);
+        while (true) {
+            ws->poll();
+            ws->send("hello");
+            ws->dispatch(handle_message);
+            // ...do more stuff...
+        }
+        ...
     }
 
 Example
@@ -86,7 +105,9 @@ Threading
 =========
 
 This library is not thread safe. The user must take care to use locks if
-accessing an instance of `WebSocket` from multiple threads.
+accessing an instance of `WebSocket` from multiple threads. If you need
+a quick threading library and don't have Boost or something else already,
+I recommend [TinyThread++](http://tinythreadpp.bitsnbites.eu/).
 
 Future Work
 ===========

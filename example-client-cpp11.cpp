@@ -1,5 +1,6 @@
 // Compile with:
 // g++ -std=gnu++0x example-client-cpp11.cpp -o example-client-cpp11
+#define EASYWSCLIENT_COMPILATION_UNIT
 #include "easywsclient.hpp"
 #include <assert.h>
 #include <stdio.h>
