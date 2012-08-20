@@ -22,7 +22,8 @@ compilation](http://en.wikipedia.org/wiki/Single_Compilation_Unit)).
 Also, this library does not work in cooperation with any asynchronous
 event processing scheduler. The good news is that the code here is
 straightforward and can serve as a reference to build something tailored
-for your needs.
+for your needs, in the spirt of copy-and-paste (and you are very welcome
+to do so).
 
 Happy hacking! Drop me a line if you do anything cool with this :)
 ...complaints welcome too.
