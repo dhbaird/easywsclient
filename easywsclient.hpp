@@ -19,8 +19,6 @@
 #include <vector>
 #include <string>
 
-// Experimental WebSocket and JSON implementation for CalVR
-// Written by David Baird <dhbaird@creativec.com>
 namespace easywsclient {
 
 struct WebSocket
