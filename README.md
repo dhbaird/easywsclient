@@ -1,26 +1,27 @@
 easywsclient
 ============
 
-Easywsclient is an easy and powerful WebSocket client to C++ get
-your code connected to a web stack right away. It depends only on
-the standard libraries.  It makes use of C++11 std::function and
+Easywsclient is an easy and powerful WebSocket client to get your
+C++ code connected to a web stack right away. It depends only on the
+standard libraries.  It is compatible with modern C++11 std::function and
 [lambda](http://en.wikipedia.org/wiki/Anonymous_function#C.2B.2B),
 if they're available (it's not required though).  [RFC
 6455](http://tools.ietf.org/html/rfc6455) Version 13 WebSocket is
-supported this version is compatible with all major, modern WebSocket
-implementations, including Node.js.
+supported. Version 13 is compatible with all major, modern WebSocket
+implementations, including Node.js, and has been a standard since
+December 2011.
 
 Rationale: This library is intended to help a C++ project start using
 WebSocket rapidly. This small library can easily be thrown into an
 existing project. For complicated builds that you can't figure out right
-away, you can even cheat by piggy-backing the .cpp file into one of the
-project's existing files. Yes, WebSocket is awesome enough to warrant
-getting it integrated into your project!  This project imposes no special
-interface requirements, and can work happily with new C++11 features or
-with older C++ projects.
+away, you can even cheat by piggy-backing the .cpp file into one of
+the project's existing files. Yes, WebSocket is that awesome enough to
+warrant getting it integrated into your project!  This project imposes
+no special interface requirements, and can work happily with new C++11
+features or with older C++ projects.
 
 As an additional benefit, easywsclient is very simple, with just a single
-implementation file and can serve as a cruft-free concise reference. You
+implementation file. It can serve as a cruft-free concise reference. You
 are most welcome to use this code as a reference for creating alternative
 implementations that may better suit your needs.
 
