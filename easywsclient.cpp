@@ -281,7 +281,12 @@ WebSocket::pointer WebSocket::from_url(std::string url) {
         char line[256];
         int status;
         int i;
-        snprintf(line, 256, "GET /%s HTTP/1.1\r\n", path); ::send(sockfd, line, strlen(line), 0);
+        if(path) {
+          snprintf(line, 256, "GET /%s HTTP/1.1\r\n", path); ::send(sockfd, line, strlen(line), 0);
+        }
+        else {
+          snprintf(line, 256, "GET / HTTP/1.1\r\n", path); ::send(sockfd, line, strlen(line), 0);
+        }
         snprintf(line, 256, "Host: %s:%d\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
         snprintf(line, 256, "Upgrade: websocket\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
         snprintf(line, 256, "Connection: Upgrade\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
