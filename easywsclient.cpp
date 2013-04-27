@@ -267,7 +267,7 @@ WebSocket::pointer WebSocket::from_url(std::string url) {
     }
     else if (sscanf(url.c_str(), "ws://%[^:]:%d", host, &port) == 2) {
     }
-    else if (sscanf(url.c_str(), "ws://%[^:]", host, &port) == 1) {
+    else if (sscanf(url.c_str(), "ws://%[^:]", host) == 1) {
         port = 80;
     }
     else {
