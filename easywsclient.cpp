@@ -207,8 +207,8 @@ struct _RealWebSocket : public WebSocket
             }
             else if (ws.opcode == wsheader_type::PING) { }
             else if (ws.opcode == wsheader_type::PONG) { }
-            else if (ws.opcode == wsheader_type::CLOSE) { closed = true; ::close(sockfd); }
-            else { fprintf(stderr, "ERROR: Got unexpected WebSocket message.\n"); closed = true; ::close(sockfd); }
+            else if (ws.opcode == wsheader_type::CLOSE) { close(); }
+            else { fprintf(stderr, "ERROR: Got unexpected WebSocket message.\n"); close(); }
 
             rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size+ws.N);
         }
@@ -245,6 +245,7 @@ struct _RealWebSocket : public WebSocket
     }
 
     void close() {
+        if (closed) { return; }
         closed = true;
         ::close(sockfd);
     }
