@@ -23,6 +23,7 @@ struct WebSocket {
     virtual ~WebSocket() { }
     virtual void poll() = 0;
     virtual void send(std::string message) = 0;
+    virtual void close() = 0;
     template<class Callable>
     void dispatch(Callable callable) { // N.B. this is compatible with both C++11 lambdas, functors and C function pointers
         struct _Callback : public Callback {

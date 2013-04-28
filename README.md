@@ -50,6 +50,10 @@ void dispatch(Callable callable);
 // Sends a TEXT type message (gets put into a buffer for poll() to send
 // later):
 void send(std::string message);
+
+// Close the WebSocket (N.B. - this is an abrupt/rude message at the moment, as
+// it simply closes the socket without sending an official CLOSE message.)
+void close();
 ```
 
 Put together, the usage looks like this:

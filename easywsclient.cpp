@@ -57,7 +57,7 @@ struct _DummyWebSocket : public WebSocket
 {
     void poll() { }
     void send(std::string message) { }
-    void _dispatch(Callback & callable) { }
+    void close() { } void _dispatch(Callback & callable) { }
 };
 
 
@@ -129,7 +129,7 @@ struct _RealWebSocket : public WebSocket
             else if (ret == 0) {
                 rxbuf.resize(N);
                 closed = true;
-                close(sockfd);
+                ::close(sockfd);
                 break;
             }
             else {
@@ -148,7 +148,7 @@ struct _RealWebSocket : public WebSocket
     // Should work with C functions, C++ functors, and C++11 std::function and
     // lambda:
     //template<class Callable>
-    //void dispatch(Callable callable) {
+    //void dispatch(Callable callable)
     virtual void _dispatch(WebSocket::Callback & callable) {
         // TODO: consider acquiring a lock on rxbuf...
         while (true) {
@@ -207,8 +207,8 @@ struct _RealWebSocket : public WebSocket
             }
             else if (ws.opcode == wsheader_type::PING) { }
             else if (ws.opcode == wsheader_type::PONG) { }
-            else if (ws.opcode == wsheader_type::CLOSE) { closed = true; close(sockfd); }
-            else { fprintf(stderr, "ERROR: Got unexpected WebSocket message.\n"); closed = true; close(sockfd); }
+            else if (ws.opcode == wsheader_type::CLOSE) { closed = true; ::close(sockfd); }
+            else { fprintf(stderr, "ERROR: Got unexpected WebSocket message.\n"); closed = true; ::close(sockfd); }
 
             rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size+ws.N);
         }
@@ -216,6 +216,7 @@ struct _RealWebSocket : public WebSocket
 
     void send(std::string message) {
         // TODO: consider acquiring a lock on txbuf...
+        if (closed) { return; }
         std::vector<uint8_t> header;
         header.assign(2 + (message.size() >= 126 ? 2 : 0) + (message.size() >= 65536 ? 6 : 0), 0);
         header[0] = 0x80 | wsheader_type::TEXT_FRAME;
@@ -241,6 +242,11 @@ struct _RealWebSocket : public WebSocket
         }
         txbuf.insert(txbuf.end(), header.begin(), header.end());
         txbuf.insert(txbuf.end(), message.begin(), message.end());
+    }
+
+    void close() {
+        closed = true;
+        ::close(sockfd);
     }
 
 };
