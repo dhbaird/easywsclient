@@ -107,7 +107,7 @@ struct _RealWebSocket : public WebSocket
     std::vector<char> txbuf;
 
     int sockfd;
-    /* I suppose we should add the other websocket status. 
+    /* I suppose we should add the others websocket status. 
      * Right now only this two are used, so, to avoid problems,
      * I've added a dummy status that includes all the non "closing" ones */
     enum clientStatusValues { CLOSING, CLOSE, DUMMYSTATUS } clientStatus;
@@ -224,7 +224,7 @@ struct _RealWebSocket : public WebSocket
 
     void send(std::string message) {
         // TODO: consider acquiring a lock on txbuf...
-        if(clientStatus==CLOSING || clientStatus==CLOSE) { fprintf(stderr, "closing"); return; }
+        if(clientStatus==CLOSING || clientStatus==CLOSE) { return; }
         std::vector<uint8_t> header;
         header.assign(2 + (message.size() >= 126 ? 2 : 0) + (message.size() >= 65536 ? 6 : 0), 0);
         header[0] = 0x80 | wsheader_type::TEXT_FRAME;
