@@ -211,7 +211,7 @@ struct _RealWebSocket : public WebSocket
             else if (ws.opcode == wsheader_type::PING) { }
             else if (ws.opcode == wsheader_type::PONG) { }
             else if (ws.opcode == wsheader_type::CLOSE) {
-              if(clientStatus!=CLOSING) { close(); }
+              if(clientStatus != CLOSING) { close(); }
               ::close(sockfd);
               clientStatus = CLOSE;
               fprintf(stderr, "Connection closed!\n");
@@ -224,7 +224,7 @@ struct _RealWebSocket : public WebSocket
 
     void send(std::string message) {
         // TODO: consider acquiring a lock on txbuf...
-        if(clientStatus==CLOSING || clientStatus==CLOSE) { return; }
+        if(clientStatus == CLOSING || clientStatus == CLOSE) { return; }
         std::vector<uint8_t> header;
         header.assign(2 + (message.size() >= 126 ? 2 : 0) + (message.size() >= 65536 ? 6 : 0), 0);
         header[0] = 0x80 | wsheader_type::TEXT_FRAME;
@@ -253,8 +253,8 @@ struct _RealWebSocket : public WebSocket
     }
 
     void close() {
-        if(clientStatus==CLOSING || clientStatus==CLOSE) { return; }
-        clientStatus=CLOSING;
+        if(clientStatus == CLOSING || clientStatus == CLOSE) { return; }
+        clientStatus = CLOSING;
         char closeFrame[4] = {0x88, 0x00, 0x00, 0x00};
         std::vector<char> header(closeFrame, closeFrame+4);
         txbuf.insert(txbuf.end(), header.begin(), header.end());
