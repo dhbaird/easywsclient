@@ -107,14 +107,17 @@ struct _RealWebSocket : public WebSocket
     std::vector<char> txbuf;
 
     int sockfd;
-    bool closed;
+    /* I suppose we should add the other websocket status. 
+     * Right now only this two are used, so, to avoid problems,
+     * I've added a dummy status that includes all the non "closing" ones */
+    enum clientStatusValues { CLOSING, CLOSE, DUMMYSTATUS } clientStatus;
 
 
-    _RealWebSocket(int sockfd) : sockfd(sockfd), closed(false) {
+    _RealWebSocket(int sockfd) : sockfd(sockfd), clientStatus(DUMMYSTATUS) {
     }
 
     void poll() {
-        if (closed) { return; }
+        if(clientStatus==CLOSE) { return; }
         while (true) {
             // FD_ISSET(0, &rfds) will be true
             int N = rxbuf.size();
@@ -128,8 +131,8 @@ struct _RealWebSocket : public WebSocket
             }
             else if (ret == 0) {
                 rxbuf.resize(N);
-                closed = true;
                 ::close(sockfd);
+                clientStatus = CLOSE;
                 break;
             }
             else {
@@ -207,7 +210,12 @@ struct _RealWebSocket : public WebSocket
             }
             else if (ws.opcode == wsheader_type::PING) { }
             else if (ws.opcode == wsheader_type::PONG) { }
-            else if (ws.opcode == wsheader_type::CLOSE) { close(); }
+            else if (ws.opcode == wsheader_type::CLOSE) {
+              if(clientStatus!=CLOSING) { close(); }
+              ::close(sockfd);
+              clientStatus = CLOSE;
+              fprintf(stderr, "Connection closed!\n");
+            }
             else { fprintf(stderr, "ERROR: Got unexpected WebSocket message.\n"); close(); }
 
             rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size+ws.N);
@@ -216,7 +224,7 @@ struct _RealWebSocket : public WebSocket
 
     void send(std::string message) {
         // TODO: consider acquiring a lock on txbuf...
-        if (closed) { return; }
+        if(clientStatus==CLOSING || clientStatus==CLOSE) { fprintf(stderr, "closing"); return; }
         std::vector<uint8_t> header;
         header.assign(2 + (message.size() >= 126 ? 2 : 0) + (message.size() >= 65536 ? 6 : 0), 0);
         header[0] = 0x80 | wsheader_type::TEXT_FRAME;
@@ -245,9 +253,11 @@ struct _RealWebSocket : public WebSocket
     }
 
     void close() {
-        if (closed) { return; }
-        closed = true;
-        ::close(sockfd);
+        if(clientStatus==CLOSING || clientStatus==CLOSE) { return; }
+        clientStatus=CLOSING;
+        char closeFrame[4] = {0x88, 0x00, 0x00, 0x00};
+        std::vector<char> header(closeFrame, closeFrame+4);
+        txbuf.insert(txbuf.end(), header.begin(), header.end());
     }
 
 };

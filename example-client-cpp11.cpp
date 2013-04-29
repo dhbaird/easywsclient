@@ -17,6 +17,7 @@ int main()
         ws->poll();
         ws->dispatch([](const std::string & message) {
             printf(">>> %s\n", message.c_str());
+            ws->close();
         });
     }
     return 0;

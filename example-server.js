@@ -28,6 +28,7 @@ wss.on('connection', function(ws) {
         if (data == 'hello') { ws.send('world'); }
     });
     ws.on('close', function() {
+      console.log('Connection closed!');
     });
     ws.on('error', function(e) {
     });
