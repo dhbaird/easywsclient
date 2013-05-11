@@ -17,7 +17,8 @@ int main()
     ws->send("goodbye");
     ws->send("hello");
     ws->close();
-    while(true) {
+    while(ws->getReadyState() != WebSocket::CLOSED) 
+    {
       ws->poll();
       ws->dispatch(handle_message);
     }

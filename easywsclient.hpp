@@ -14,6 +14,7 @@ namespace easywsclient {
 
 struct WebSocket {
     typedef WebSocket * pointer;
+    typedef enum readyStateValues { CLOSING, CLOSED, CONNECTING, OPEN } readyStateValues;
 
     // Factories:
     static pointer create_dummy();
@@ -24,6 +25,7 @@ struct WebSocket {
     virtual void poll() = 0;
     virtual void send(std::string message) = 0;
     virtual void close() = 0;
+    virtual const readyStateValues getReadyState() = 0;
     template<class Callable>
     void dispatch(Callable callable) { // N.B. this is compatible with both C++11 lambdas, functors and C function pointers
         struct _Callback : public Callback {
