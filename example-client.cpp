@@ -16,9 +16,12 @@ int main()
     assert(ws);
     ws->send("goodbye");
     ws->send("hello");
-    while (true) {
-        ws->poll();
-        ws->dispatch(handle_message);
+    ws->close();
+    while(ws->getReadyState() != WebSocket::CLOSED) 
+    {
+      ws->poll();
+      ws->dispatch(handle_message);
     }
+    
     return 0;
 }

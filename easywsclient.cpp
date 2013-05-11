@@ -57,7 +57,10 @@ struct _DummyWebSocket : public WebSocket
 {
     void poll() { }
     void send(std::string message) { }
-    void close() { } void _dispatch(Callback & callable) { }
+    void close() { } 
+    void _dispatch(Callback & callable) { }
+    const readyStateValues getReadyState() {}
+
 };
 
 
@@ -107,14 +110,17 @@ struct _RealWebSocket : public WebSocket
     std::vector<char> txbuf;
 
     int sockfd;
-    bool closed;
+    readyStateValues readyState;
 
+    _RealWebSocket(int sockfd) : sockfd(sockfd), readyState(OPEN) {
+    }
 
-    _RealWebSocket(int sockfd) : sockfd(sockfd), closed(false) {
+    const readyStateValues getReadyState() {
+      return readyState;
     }
 
     void poll() {
-        if (closed) { return; }
+        if(readyState==CLOSED) { return; }
         while (true) {
             // FD_ISSET(0, &rfds) will be true
             int N = rxbuf.size();
@@ -128,8 +134,9 @@ struct _RealWebSocket : public WebSocket
             }
             else if (ret == 0) {
                 rxbuf.resize(N);
-                closed = true;
                 ::close(sockfd);
+                readyState = CLOSED;
+                fprintf(stderr, "Connection closed!\n");
                 break;
             }
             else {
@@ -207,7 +214,9 @@ struct _RealWebSocket : public WebSocket
             }
             else if (ws.opcode == wsheader_type::PING) { }
             else if (ws.opcode == wsheader_type::PONG) { }
-            else if (ws.opcode == wsheader_type::CLOSE) { close(); }
+            else if (ws.opcode == wsheader_type::CLOSE) {
+              if(readyState != CLOSING) { close(); }
+            }
             else { fprintf(stderr, "ERROR: Got unexpected WebSocket message.\n"); close(); }
 
             rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size+ws.N);
@@ -216,7 +225,7 @@ struct _RealWebSocket : public WebSocket
 
     void send(std::string message) {
         // TODO: consider acquiring a lock on txbuf...
-        if (closed) { return; }
+        if(readyState == CLOSING || readyState == CLOSED) { return; }
         std::vector<uint8_t> header;
         header.assign(2 + (message.size() >= 126 ? 2 : 0) + (message.size() >= 65536 ? 6 : 0), 0);
         header[0] = 0x80 | wsheader_type::TEXT_FRAME;
@@ -245,9 +254,11 @@ struct _RealWebSocket : public WebSocket
     }
 
     void close() {
-        if (closed) { return; }
-        closed = true;
-        ::close(sockfd);
+        if(readyState == CLOSING || readyState == CLOSED) { return; }
+        readyState = CLOSING;
+        char closeFrame[4] = {0x88, 0x00, 0x00, 0x00};
+        std::vector<char> header(closeFrame, closeFrame+4);
+        txbuf.insert(txbuf.end(), header.begin(), header.end());
     }
 
 };
