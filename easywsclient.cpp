@@ -105,8 +105,8 @@ struct _RealWebSocket : public WebSocket
         uint8_t masking_key[4];
     };
 
-    std::vector<char> rxbuf;
-    std::vector<char> txbuf;
+    std::vector<uint8_t> rxbuf;
+    std::vector<uint8_t> txbuf;
 
     int sockfd;
     readyStateValues readyState;
@@ -149,7 +149,7 @@ struct _RealWebSocket : public WebSocket
             else { break; }
         }
         if (!txbuf.size() && readyState == CLOSING) {
-            ::close();
+            ::close(sockfd);
             readyState = CLOSED;
         }
     }
@@ -257,8 +257,8 @@ struct _RealWebSocket : public WebSocket
     void close() {
         if(readyState == CLOSING || readyState == CLOSED) { return; }
         readyState = CLOSING;
-        char closeFrame[4] = {0x88, 0x00, 0x00, 0x00};
-        std::vector<char> header(closeFrame, closeFrame+4);
+        uint8_t closeFrame[4] = {0x88, 0x00, 0x00, 0x00};
+        std::vector<uint8_t> header(closeFrame, closeFrame+4);
         txbuf.insert(txbuf.end(), header.begin(), header.end());
     }
 
