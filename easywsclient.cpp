@@ -148,7 +148,10 @@ struct _RealWebSocket : public WebSocket
             if (ret > 0) { txbuf.erase(txbuf.begin(), txbuf.begin() + ret); }
             else { break; }
         }
-        if (!txbuf.size() && readyState == CLOSING) { ::close(); }
+        if (!txbuf.size() && readyState == CLOSING) {
+            ::close();
+            readyState = CLOSED;
+        }
     }
 
     // Callable must have signature: void(const std::string & message).
