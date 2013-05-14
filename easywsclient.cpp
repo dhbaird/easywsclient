@@ -59,8 +59,7 @@ struct _DummyWebSocket : public WebSocket
     void send(std::string message) { }
     void close() { } 
     void _dispatch(Callback & callable) { }
-    const readyStateValues getReadyState() {}
-
+    readyStateValues getReadyState() { return CLOSED; }
 };
 
 
@@ -115,12 +114,12 @@ struct _RealWebSocket : public WebSocket
     _RealWebSocket(int sockfd) : sockfd(sockfd), readyState(OPEN) {
     }
 
-    const readyStateValues getReadyState() {
+    readyStateValues getReadyState() {
       return readyState;
     }
 
     void poll() {
-        if(readyState==CLOSED) { return; }
+        if (readyState == CLOSED) { return; }
         while (true) {
             // FD_ISSET(0, &rfds) will be true
             int N = rxbuf.size();
@@ -149,6 +148,7 @@ struct _RealWebSocket : public WebSocket
             if (ret > 0) { txbuf.erase(txbuf.begin(), txbuf.begin() + ret); }
             else { break; }
         }
+        if (!txbuf.size() && readyState == CLOSING) { ::close(); }
     }
 
     // Callable must have signature: void(const std::string & message).
@@ -214,9 +214,7 @@ struct _RealWebSocket : public WebSocket
             }
             else if (ws.opcode == wsheader_type::PING) { }
             else if (ws.opcode == wsheader_type::PONG) { }
-            else if (ws.opcode == wsheader_type::CLOSE) {
-              if(readyState != CLOSING) { close(); }
-            }
+            else if (ws.opcode == wsheader_type::CLOSE) { close(); }
             else { fprintf(stderr, "ERROR: Got unexpected WebSocket message.\n"); close(); }
 
             rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size+ws.N);
@@ -225,7 +223,7 @@ struct _RealWebSocket : public WebSocket
 
     void send(std::string message) {
         // TODO: consider acquiring a lock on txbuf...
-        if(readyState == CLOSING || readyState == CLOSED) { return; }
+        if (readyState == CLOSING || readyState == CLOSED) { return; }
         std::vector<uint8_t> header;
         header.assign(2 + (message.size() >= 126 ? 2 : 0) + (message.size() >= 65536 ? 6 : 0), 0);
         header[0] = 0x80 | wsheader_type::TEXT_FRAME;
