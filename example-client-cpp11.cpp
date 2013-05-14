@@ -12,11 +12,12 @@ int main()
     WebSocket::pointer ws = WebSocket::from_url("ws://localhost:8126/foo");
     assert(ws);
     ws->send("goodbye");
-    while (true) {
+    ws->send("hello");
+    while (ws->getReadyState() != WebSocket::CLOSED) {
         ws->poll();
-        ws->dispatch([](const std::string & message) {
+        ws->dispatch([ws](const std::string & message) {
             printf(">>> %s\n", message.c_str());
-            ws->close();
+            if (message == "world") { ws->close(); }
         });
     }
     return 0;
