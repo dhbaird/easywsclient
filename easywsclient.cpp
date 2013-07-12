@@ -279,20 +279,23 @@ WebSocket::pointer WebSocket::from_url(std::string url) {
     int port;
     char path[128];
     if (false) { }
-    else if (sscanf(url.c_str(), "ws://%[^:]:%d/%s", host, &port, path) == 3) {
+    else if (sscanf(url.c_str(), "ws://%[^:/]:%d/%s", host, &port, path) == 3) {
     }
-    else if (sscanf(url.c_str(), "ws://%[^/]/%s", host, path) == 2) {
+    else if (sscanf(url.c_str(), "ws://%[^:/]/%s", host, path) == 2) {
         port = 80;
     }
-    else if (sscanf(url.c_str(), "ws://%[^:]:%d", host, &port) == 2) {
+    else if (sscanf(url.c_str(), "ws://%[^:/]:%d", host, &port) == 2) {
+        path[0] = '\0';
     }
-    else if (sscanf(url.c_str(), "ws://%[^:]", host) == 1) {
+    else if (sscanf(url.c_str(), "ws://%[^:/]", host) == 1) {
         port = 80;
+        path[0] = '\0';
     }
     else {
         fprintf(stderr, "ERROR: Could not parse WebSocket url: %s\n", url.c_str());
         return NULL;
     }
+    fprintf(stderr, "easywsclient: connecting: host=%s port=%d path=/%s\n", host, port, path);
     int sockfd = hostname_connect(host, port);
     if (sockfd == -1) {
         fprintf(stderr, "Unable to connect to %s:%d\n", host, port);
