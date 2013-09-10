@@ -308,11 +308,11 @@ WebSocket::pointer WebSocket::from_url(std::string url) {
         int i;
         snprintf(line, 256, "GET /%s HTTP/1.1\r\n", path); ::send(sockfd, line, strlen(line), 0);
         snprintf(line, 256, "Host: %s:%d\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
-        snprintf(line, 256, "Upgrade: websocket\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
-        snprintf(line, 256, "Connection: Upgrade\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
-        snprintf(line, 256, "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
-        snprintf(line, 256, "Sec-WebSocket-Version: 13\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
-        snprintf(line, 256, "\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
+        snprintf(line, 256, "Upgrade: websocket\r\n"); ::send(sockfd, line, strlen(line), 0);
+        snprintf(line, 256, "Connection: Upgrade\r\n"); ::send(sockfd, line, strlen(line), 0);
+        snprintf(line, 256, "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"); ::send(sockfd, line, strlen(line), 0);
+        snprintf(line, 256, "Sec-WebSocket-Version: 13\r\n"); ::send(sockfd, line, strlen(line), 0);
+        snprintf(line, 256, "\r\n"); ::send(sockfd, line, strlen(line), 0);
         for (i = 0; i < 2 || i < 255 && line[i-2] != '\r' && line[i-1] != '\n'; ++i) { if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; } }
         line[i] = 0;
         if (i == 255) { fprintf(stderr, "ERROR: Got invalid status line connecting to: %s\n", url.c_str()); return NULL; }
