@@ -89,7 +89,7 @@ struct _RealWebSocket : public WebSocket
     +---------------------------------------------------------------+
     #endif
     struct wsheader_type {
-        int header_size;
+        unsigned header_size;
         bool fin;
         bool mask;
         enum opcode_type {
@@ -313,13 +313,13 @@ WebSocket::pointer WebSocket::from_url(std::string url) {
         snprintf(line, 256, "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"); ::send(sockfd, line, strlen(line), 0);
         snprintf(line, 256, "Sec-WebSocket-Version: 13\r\n"); ::send(sockfd, line, strlen(line), 0);
         snprintf(line, 256, "\r\n"); ::send(sockfd, line, strlen(line), 0);
-        for (i = 0; i < 2 || i < 255 && line[i-2] != '\r' && line[i-1] != '\n'; ++i) { if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; } }
+        for (i = 0; i < 2 || (i < 255 && line[i-2] != '\r' && line[i-1] != '\n'); ++i) { if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; } }
         line[i] = 0;
         if (i == 255) { fprintf(stderr, "ERROR: Got invalid status line connecting to: %s\n", url.c_str()); return NULL; }
         if (sscanf(line, "HTTP/1.1 %d", &status) != 1 || status != 101) { fprintf(stderr, "ERROR: Got bad status connecting to %s: %s", url.c_str(), line); return NULL; }
         // TODO: verify response headers,
         while (true) {
-            for (i = 0; i < 2 || i < 255 && line[i-2] != '\r' && line[i-1] != '\n'; ++i) { if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; } }
+            for (i = 0; i < 2 || (i < 255 && line[i-2] != '\r' && line[i-1] != '\n'); ++i) { if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; } }
             if (line[0] == '\r' && line[1] == '\n') { break; }
         }
     }
