@@ -12,7 +12,8 @@
 
 namespace easywsclient {
 
-struct WebSocket {
+class WebSocket {
+  public:
     typedef WebSocket * pointer;
     typedef enum readyStateValues { CLOSING, CLOSED, CONNECTING, OPEN } readyStateValues;
 
