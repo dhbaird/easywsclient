@@ -47,14 +47,10 @@ int hostname_connect(std::string hostname, int port) {
     return sockfd;
 }
 
-}
 
-
-
-namespace easywsclient {
-
-struct _DummyWebSocket : public WebSocket
+class _DummyWebSocket : public easywsclient::WebSocket
 {
+  public:
     void poll() { }
     void send(std::string message) { }
     void close() { } 
@@ -64,8 +60,9 @@ struct _DummyWebSocket : public WebSocket
 
 
 
-struct _RealWebSocket : public WebSocket
+class _RealWebSocket : public easywsclient::WebSocket
 {
+  public:
     // http://tools.ietf.org/html/rfc6455#section-5.2  Base Framing Protocol
     //
     //  0                   1                   2                   3
@@ -264,8 +261,11 @@ struct _RealWebSocket : public WebSocket
 
 
 
+} // end of module-only namespace
 
 
+
+namespace easywsclient {
 
 WebSocket::pointer WebSocket::create_dummy() {
     static pointer dummy = pointer(new _DummyWebSocket);
