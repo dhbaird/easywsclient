@@ -76,6 +76,8 @@ main()
         // ...do more stuff...
     }
     ...
+    delete ws; // alternatively, use unique_ptr<> if you have C++11
+    return 0;
 }
 ```
 

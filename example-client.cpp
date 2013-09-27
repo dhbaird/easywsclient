@@ -23,5 +23,6 @@ int main()
       ws->poll();
       ws->dispatch(handle_message);
     }
+    delete ws;
     return 0;
 }

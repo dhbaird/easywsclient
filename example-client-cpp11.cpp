@@ -5,20 +5,23 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string>
+#include <memory>
 
 int main()
 {
     using easywsclient::WebSocket;
-    WebSocket::pointer ws = WebSocket::from_url("ws://localhost:8126/foo");
+    std::unique_ptr<WebSocket> ws(WebSocket::from_url("ws://localhost:8126/foo"));
     assert(ws);
     ws->send("goodbye");
     ws->send("hello");
     while (ws->getReadyState() != WebSocket::CLOSED) {
+        WebSocket::pointer wsp = &*ws; // <-- because a unique_ptr cannot be copied into a lambda
         ws->poll();
-        ws->dispatch([ws](const std::string & message) {
+        ws->dispatch([wsp](const std::string & message) {
             printf(">>> %s\n", message.c_str());
-            if (message == "world") { ws->close(); }
+            if (message == "world") { wsp->close(); }
         });
     }
+    // N.B. - unique_ptr will free the WebSocket instance upon return:
     return 0;
 }
