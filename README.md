@@ -60,7 +60,7 @@ Put together, the usage looks like this:
 
 ```c++
 #include "easywsclient.hpp"
-#include "easywsclient.cpp" // <-- include only if you don't want compile separately
+//#include "easywsclient.cpp" // <-- include only if you don't want compile separately
 
 int
 main()
