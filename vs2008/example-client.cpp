@@ -17,6 +17,7 @@ void handle_message(const std::string & message)
 
 int main()
 {
+#ifdef _WIN32
 	INT rc;
     WSADATA wsaData;
 
@@ -25,8 +26,9 @@ int main()
 		printf("WSAStartup Failed.\n");
         return 1;
     }
+#endif
 
-	ws = WebSocket::from_url("ws://localhost:8126/foo");
+    ws = WebSocket::from_url("ws://localhost:8126/foo");
     assert(ws);
     ws->send("goodbye");
     ws->send("hello");
@@ -35,6 +37,8 @@ int main()
       ws->dispatch(handle_message);
     }
 
+#ifdef _WIN32
 	WSACleanup();
-	return 0;
+#endif
+    return 0;
 }

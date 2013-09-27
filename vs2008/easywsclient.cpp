@@ -1,45 +1,75 @@
 #include "easywsclient.hpp"
 
-#include <fcntl.h>
-#pragma comment( lib, "ws2_32" )
-#include <WinSock2.h>
-#include <WS2tcpip.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/types.h>
-#include <io.h>
-typedef __int8 int8_t;
-typedef unsigned __int8 uint8_t;
-typedef __int32 int32_t;
-typedef unsigned __int32 uint32_t;
-typedef __int64 int64_t;
-typedef unsigned __int64 uint64_t;
+#ifdef _WIN32
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
+    #include <fcntl.h>
+    #include <WinSock2.h>
+    #include <WS2tcpip.h>
+    #pragma comment( lib, "ws2_32" )
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <sys/types.h>
+    #include <io.h>
+    #ifndef _SSIZE_T_DEFINED
+        typedef int ssize_t;
+        #define _SSIZE_T_DEFINED
+    #endif
+    #ifndef _SOCKET_T_DEFINED
+        typedef SOCKET socket_t;
+        #define _SOCKET_T_DEFINED
+    #endif
+    #ifndef snprintf
+        #define snprintf _snprintf_s
+    #endif
+    #if _MSC_VER >=1600
+        // vs2010 or later
+        #include <stdint.h>
+    #else
+        typedef __int8 int8_t;
+        typedef unsigned __int8 uint8_t;
+        typedef __int32 int32_t;
+        typedef unsigned __int32 uint32_t;
+        typedef __int64 int64_t;
+        typedef unsigned __int64 uint64_t;
+    #endif
+#else
+    #include <fcntl.h>
+    #include <netdb.h>
+    #include <netinet/tcp.h>
+    #include <stdio.h>
+    #include <stdlib.h>
+    #include <string.h>
+    #include <sys/socket.h>
+    #include <sys/time.h>
+    #include <sys/types.h>
+    #include <unistd.h>
+    #include <stdint.h>
+    #ifndef _SOCKET_T_DEFINED
+        typedef int socket_t;
+        #define _SOCKET_T_DEFINED
+    #endif
+    #ifndef INVALID_SOCKET
+        #define INVALID_SOCKET (-1)
+    #endif
+    #ifndef SOCKET_ERROR
+        #define SOCKET_ERROR   (-1)
+    #endif
+#endif
 
 #include <vector>
 #include <string>
 
-#ifndef _SSIZE_T_DEFINED
-typedef int ssize_t;
-#define _SSIZE_T_DEFINED
-#endif
-
-#ifndef snprintf
-#define snprintf _snprintf_s
-#endif
-
-#ifndef sscanf
-#define sscanf sscanf
-#endif
-
 namespace { // private module-only namespace
 
-int hostname_connect(std::string hostname, int port) {
+socket_t hostname_connect(std::string hostname, int port) {
     struct addrinfo hints;
     struct addrinfo *result;
     struct addrinfo *p;
     int ret;
-    int sockfd = -1;
+    socket_t sockfd = INVALID_SOCKET;
     char sport[16];
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
@@ -53,12 +83,16 @@ int hostname_connect(std::string hostname, int port) {
     for(p = result; p != NULL; p = p->ai_next)
     {
         sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
-        if (sockfd == -1) { continue; }
-        if (connect(sockfd, p->ai_addr, p->ai_addrlen) != -1) {
+        if (sockfd == INVALID_SOCKET) { continue; }
+        if (connect(sockfd, p->ai_addr, p->ai_addrlen) != SOCKET_ERROR) {
             break;
         }
+#ifdef _WIN32
         closesocket(sockfd);
-        sockfd = -1;
+#else
+        close(sockfd);
+#endif
+        sockfd = INVALID_SOCKET;
     }
     freeaddrinfo(result);
     return sockfd;
@@ -122,13 +156,21 @@ struct _RealWebSocket : public WebSocket
         uint8_t masking_key[4];
     };
 
+    inline int close(socket_t sockfd) {
+#ifdef _WIN32
+        return ::closesocket(sockfd);
+#else
+        return ::close(sockfd);
+#endif
+    }
+
     std::vector<uint8_t> rxbuf;
     std::vector<uint8_t> txbuf;
 
-    int sockfd;
+    socket_t sockfd;
     readyStateValues readyState;
 
-    _RealWebSocket(int sockfd) : sockfd(sockfd), readyState(OPEN) {
+    _RealWebSocket(socket_t sockfd) : sockfd(sockfd), readyState(OPEN) {
     }
 
     readyStateValues getReadyState() {
@@ -150,7 +192,7 @@ struct _RealWebSocket : public WebSocket
             }
             else if (ret == 0) {
                 rxbuf.resize(N);
-                ::closesocket(sockfd);
+                close(sockfd);
                 readyState = CLOSED;
                 fprintf(stderr, "Connection closed!\n");
                 break;
@@ -166,7 +208,7 @@ struct _RealWebSocket : public WebSocket
             else { break; }
         }
         if (!txbuf.size() && readyState == CLOSING) {
-            ::closesocket(sockfd);
+            close(sockfd);
             readyState = CLOSED;
         }
     }
@@ -245,28 +287,28 @@ struct _RealWebSocket : public WebSocket
         // TODO: consider acquiring a lock on txbuf...
         if (readyState == CLOSING || readyState == CLOSED) { return; }
         std::vector<uint8_t> header;
-		uint64_t length = message.size();
-        header.assign(2 + (length >= 126 ? 2 : 0) + (length >= 65536 ? 6 : 0), 0);
+        uint64_t message_size = message.size();
+        header.assign(2 + (message_size >= 126 ? 2 : 0) + (message_size >= 65536 ? 6 : 0), 0);
         header[0] = 0x80 | wsheader_type::TEXT_FRAME;
         if (false) { }
-        else if (length < 126) {
-            header[1] = length & 0xff;
+        else if (message_size < 126) {
+            header[1] = message_size & 0xff;
         }
-        else if (message.size() < 65536) {
+        else if (message_size < 65536) {
             header[1] = 126;
-            header[2] = (length >> 8) & 0xff;
-            header[3] = (length >> 0) & 0xff;
+            header[2] = (message_size >> 8) & 0xff;
+            header[3] = (message_size >> 0) & 0xff;
         }
         else { // TODO: run coverage testing here
             header[1] = 127;
-            header[2] = (length >> 56) & 0xff;
-            header[3] = (length >> 48) & 0xff;
-            header[4] = (length >> 40) & 0xff;
-            header[5] = (length >> 32) & 0xff;
-            header[6] = (length >> 24) & 0xff;
-            header[7] = (length >> 16) & 0xff;
-            header[8] = (length >>  8) & 0xff;
-            header[9] = (length >>  0) & 0xff;
+            header[2] = (message_size >> 56) & 0xff;
+            header[3] = (message_size >> 48) & 0xff;
+            header[4] = (message_size >> 40) & 0xff;
+            header[5] = (message_size >> 32) & 0xff;
+            header[6] = (message_size >> 24) & 0xff;
+            header[7] = (message_size >> 16) & 0xff;
+            header[8] = (message_size >>  8) & 0xff;
+            header[9] = (message_size >>  0) & 0xff;
         }
         txbuf.insert(txbuf.end(), header.begin(), header.end());
         txbuf.insert(txbuf.end(), message.begin(), message.end());
@@ -314,8 +356,8 @@ WebSocket::pointer WebSocket::from_url(std::string url) {
         return NULL;
     }
     fprintf(stderr, "easywsclient: connecting: host=%s port=%d path=/%s\n", host, port, path);
-    int sockfd = hostname_connect(host, port);
-    if (sockfd == -1) {
+    socket_t sockfd = hostname_connect(host, port);
+    if (sockfd == INVALID_SOCKET) {
         fprintf(stderr, "Unable to connect to %s:%d\n", host, port);
         return NULL;
     }
@@ -343,8 +385,12 @@ WebSocket::pointer WebSocket::from_url(std::string url) {
     }
     int flag = 1;
     setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, (char*) &flag, sizeof(flag)); // Disable Nagle's algorithm
-	u_long mode = 1;
-    ioctlsocket(sockfd, FIONBIO, &mode);
+#ifdef _WIN32
+    u_long on = 1;
+    ioctlsocket(sockfd, FIONBIO, &on);
+#else
+    fcntl(sockfd, F_SETFL, O_NONBLOCK);
+#endif
     fprintf(stderr, "Connected to: %s\n", url.c_str());
     return pointer(new _RealWebSocket(sockfd));
 }
