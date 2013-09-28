@@ -60,7 +60,7 @@ Put together, the usage looks like this:
 
 ```c++
 #include "easywsclient.hpp"
-#include "easywsclient.cpp" // <-- include only if you don't want compile separately
+//#include "easywsclient.cpp" // <-- include only if you don't want compile separately
 
 int
 main()
@@ -76,6 +76,8 @@ main()
         // ...do more stuff...
     }
     ...
+    delete ws; // alternatively, use unique_ptr<> if you have C++11
+    return 0;
 }
 ```
 
