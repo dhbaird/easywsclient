@@ -1,7 +1,9 @@
 #include "easywsclient.hpp"
-//#include "easywsclient.cpp" // <-- include only if you don't want compile separately
+#include "easywsclient.cpp" // <-- include only if you don't want compile separately
+#ifdef _WIN32
 #pragma comment( lib, "ws2_32" )
 #include <WinSock2.h>
+#endif
 #include <assert.h>
 #include <stdio.h>
 #include <string>
