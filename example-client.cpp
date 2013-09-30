@@ -1,5 +1,9 @@
 #include "easywsclient.hpp"
 //#include "easywsclient.cpp" // <-- include only if you don't want compile separately
+#ifdef _WIN32
+#pragma comment( lib, "ws2_32" )
+#include <WinSock2.h>
+#endif
 #include <assert.h>
 #include <stdio.h>
 #include <string>
@@ -15,6 +19,17 @@ void handle_message(const std::string & message)
 
 int main()
 {
+#ifdef _WIN32
+	INT rc;
+    WSADATA wsaData;
+
+	rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (rc) {
+		printf("WSAStartup Failed.\n");
+        return 1;
+    }
+#endif
+
     ws = WebSocket::from_url("ws://localhost:8126/foo");
     assert(ws);
     ws->send("goodbye");
@@ -23,6 +38,9 @@ int main()
       ws->poll();
       ws->dispatch(handle_message);
     }
-    delete ws;
+
+#ifdef _WIN32
+	WSACleanup();
+#endif
     return 0;
 }
