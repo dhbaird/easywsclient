@@ -1,7 +1,7 @@
 CXXFLAGS = -std=gnu++0x -Wall
 LDLIBS = -lstdc++
 .PHONY: all clean
-all: example-client example-client-cpp11 testserver
+all: example-client example-client-cpp11
 clean:
 	-rm  example-client example-client-cpp11 *.o
 testserver: node_modules
