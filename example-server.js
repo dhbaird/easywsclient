@@ -23,9 +23,9 @@ wss.on('connection', function(ws) {
     console.log('/foo connected');
     ws.on('message', function(data, flags) {
         if (flags.binary) { return; }
-        console.log('/foo >>> ' + data);
-        if (data == 'goodbye') { ws.send('galaxy'); }
-        if (data == 'hello') { ws.send('world'); }
+        console.log('>>> ' + data);
+        if (data == 'goodbye') { console.log('<<< galaxy'); ws.send('galaxy'); }
+        if (data == 'hello') { console.log('<<< world'); ws.send('world'); }
     });
     ws.on('close', function() {
       console.log('Connection closed!');
