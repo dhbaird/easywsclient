@@ -20,6 +20,7 @@ class WebSocket {
     // Factories:
     static pointer create_dummy();
     static pointer from_url(std::string url);
+    static pointer from_url_no_mask(std::string url);
 
     // Interfaces:
     virtual ~WebSocket() { }

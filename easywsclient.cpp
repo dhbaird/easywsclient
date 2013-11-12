@@ -166,8 +166,9 @@ class _RealWebSocket : public easywsclient::WebSocket
 
     socket_t sockfd;
     readyStateValues readyState;
+    bool useMask;
 
-    _RealWebSocket(socket_t sockfd) : sockfd(sockfd), readyState(OPEN) {
+    _RealWebSocket(socket_t sockfd, bool useMask) : sockfd(sockfd), readyState(OPEN), useMask(useMask) {
     }
 
     readyStateValues getReadyState() {
@@ -289,23 +290,40 @@ class _RealWebSocket : public easywsclient::WebSocket
     }
 
     void send(std::string message) {
+        // TODO:
+        // Masking key should (must) be derived from a high quality random
+        // number generator, to mitigate attacks on non-WebSocket friendly
+        // middleware:
+        const uint8_t masking_key[4] = { 0x12, 0x34, 0x56, 0x78 };
         // TODO: consider acquiring a lock on txbuf...
         if (readyState == CLOSING || readyState == CLOSED) { return; }
         std::vector<uint8_t> header;
         uint64_t message_size = message.size();
-        header.assign(2 + (message_size >= 126 ? 2 : 0) + (message_size >= 65536 ? 6 : 0), 0);
+        header.assign(2 + (message_size >= 126 ? 2 : 0) + (message_size >= 65536 ? 6 : 0) + (useMask ? 4 : 0), 0);
         header[0] = 0x80 | wsheader_type::TEXT_FRAME;
         if (false) { }
         else if (message_size < 126) {
-            header[1] = message_size & 0xff;
+            header[1] = (message_size & 0xff) | (useMask ? 0x80 : 0);
+            if (useMask) {
+                header[2] = masking_key[0];
+                header[3] = masking_key[1];
+                header[4] = masking_key[2];
+                header[5] = masking_key[3];
+            }
         }
         else if (message_size < 65536) {
-            header[1] = 126;
+            header[1] = 126 | (useMask ? 0x80 : 0);
             header[2] = (message_size >> 8) & 0xff;
             header[3] = (message_size >> 0) & 0xff;
+            if (useMask) {
+                header[4] = masking_key[0];
+                header[5] = masking_key[1];
+                header[6] = masking_key[2];
+                header[7] = masking_key[3];
+            }
         }
         else { // TODO: run coverage testing here
-            header[1] = 127;
+            header[1] = 127 | (useMask ? 0x80 : 0);
             header[2] = (message_size >> 56) & 0xff;
             header[3] = (message_size >> 48) & 0xff;
             header[4] = (message_size >> 40) & 0xff;
@@ -314,9 +332,18 @@ class _RealWebSocket : public easywsclient::WebSocket
             header[7] = (message_size >> 16) & 0xff;
             header[8] = (message_size >>  8) & 0xff;
             header[9] = (message_size >>  0) & 0xff;
+            if (useMask) {
+                header[10] = masking_key[0];
+                header[11] = masking_key[1];
+                header[12] = masking_key[2];
+                header[13] = masking_key[3];
+            }
         }
         txbuf.insert(txbuf.end(), header.begin(), header.end());
         txbuf.insert(txbuf.end(), message.begin(), message.end());
+        if (useMask) {
+            for (size_t i = 0; i != message.size(); ++i) { txbuf[i+header.size()] ^= masking_key[i&0x3]; }
+        }
     }
 
     void close() {
@@ -330,19 +357,7 @@ class _RealWebSocket : public easywsclient::WebSocket
 };
 
 
-
-} // end of module-only namespace
-
-
-
-namespace easywsclient {
-
-WebSocket::pointer WebSocket::create_dummy() {
-    static pointer dummy = pointer(new _DummyWebSocket);
-    return dummy;
-}
-
-WebSocket::pointer WebSocket::from_url(std::string url) {
+easywsclient::WebSocket::pointer from_url(std::string url, bool useMask) {
     char host[128];
     int port;
     char path[128];
@@ -400,7 +415,27 @@ WebSocket::pointer WebSocket::from_url(std::string url) {
     fcntl(sockfd, F_SETFL, O_NONBLOCK);
 #endif
     fprintf(stderr, "Connected to: %s\n", url.c_str());
-    return pointer(new _RealWebSocket(sockfd));
+    return easywsclient::WebSocket::pointer(new _RealWebSocket(sockfd, useMask));
+}
+
+} // end of module-only namespace
+
+
+
+namespace easywsclient {
+
+WebSocket::pointer WebSocket::create_dummy() {
+    static pointer dummy = pointer(new _DummyWebSocket);
+    return dummy;
+}
+
+
+WebSocket::pointer WebSocket::from_url(std::string url) {
+    return ::from_url(url, true);
+}
+
+WebSocket::pointer WebSocket::from_url_no_mask(std::string url) {
+    return ::from_url(url, false);
 }
 
 
