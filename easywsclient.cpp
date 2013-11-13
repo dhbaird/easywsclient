@@ -364,6 +364,10 @@ easywsclient::WebSocket::pointer from_url(std::string url, bool useMask) {
     char host[128];
     int port;
     char path[128];
+    if (url.size() >= 128) {
+      fprintf(stderr, "ERROR: url size limit exceeded: %s\n", url.c_str());
+      return NULL;
+    }
     if (false) { }
     else if (sscanf(url.c_str(), "ws://%[^:/]:%d/%s", host, &port, path) == 3) {
     }
