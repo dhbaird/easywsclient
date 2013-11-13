@@ -183,7 +183,7 @@ class _RealWebSocket : public easywsclient::WebSocket
             ssize_t ret;
             rxbuf.resize(N + 1500);
 #ifdef _WIN32
-            ret = recv(sockfd, (int8_t*)&rxbuf[0] + N, 1500, 0);
+            ret = recv(sockfd, (char*)&rxbuf[0] + N, 1500, 0);
 #else
             ret = recv(sockfd, &rxbuf[0] + N, 1500, 0);
 #endif
