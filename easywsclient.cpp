@@ -1,8 +1,8 @@
 #include "easywsclient.hpp"
 
 #ifdef _WIN32
-    // CRTSECURE_NO_WARNINGS for sscanf errors in MSVC2013 Express
-    #define CRTSECURE_NO_WARNINGS
+    // _CRT_SECURE_NO_WARNINGS for sscanf errors in MSVC2013 Express
+    #define _CRT_SECURE_NO_WARNINGS
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
     #endif
