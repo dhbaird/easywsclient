@@ -342,10 +342,11 @@ class _RealWebSocket : public easywsclient::WebSocket
                 header[13] = masking_key[3];
             }
         }
+        // N.B. - txbuf will keep growing until it can be transmitted over the socket:
         txbuf.insert(txbuf.end(), header.begin(), header.end());
         txbuf.insert(txbuf.end(), message.begin(), message.end());
         if (useMask) {
-            for (size_t i = 0; i != message.size(); ++i) { txbuf[i+header.size()] ^= masking_key[i&0x3]; }
+            for (size_t i = 0; i != message.size(); ++i) { *(txbuf.end() - message.size() + i) ^= masking_key[i&0x3]; }
         }
     }
 
