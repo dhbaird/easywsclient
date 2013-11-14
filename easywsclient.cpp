@@ -353,8 +353,8 @@ class _RealWebSocket : public easywsclient::WebSocket
     void close() {
         if(readyState == CLOSING || readyState == CLOSED) { return; }
         readyState = CLOSING;
-        uint8_t closeFrame[4] = {0x88, 0x00, 0x00, 0x00};
-        std::vector<uint8_t> header(closeFrame, closeFrame+4);
+        uint8_t closeFrame[2] = {0x88, 0x00};
+        std::vector<uint8_t> header(closeFrame, closeFrame+2);
         txbuf.insert(txbuf.end(), header.begin(), header.end());
     }
 
