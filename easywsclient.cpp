@@ -398,7 +398,12 @@ easywsclient::WebSocket::pointer from_url(std::string url, bool useMask) {
         int status;
         int i;
         snprintf(line, 256, "GET /%s HTTP/1.1\r\n", path); ::send(sockfd, line, strlen(line), 0);
-        snprintf(line, 256, "Host: %s:%d\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
+        if (port == 80) {
+            snprintf(line, 256, "Host: %s\r\n", host); ::send(sockfd, line, strlen(line), 0);
+        }
+        else {
+            snprintf(line, 256, "Host: %s:%d\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
+        }
         snprintf(line, 256, "Upgrade: websocket\r\n"); ::send(sockfd, line, strlen(line), 0);
         snprintf(line, 256, "Connection: Upgrade\r\n"); ::send(sockfd, line, strlen(line), 0);
         snprintf(line, 256, "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"); ::send(sockfd, line, strlen(line), 0);
