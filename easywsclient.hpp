@@ -24,7 +24,7 @@ class WebSocket {
 
     // Interfaces:
     virtual ~WebSocket() { }
-    virtual void poll() = 0;
+    virtual void poll(int timeout = 0) = 0; // timeout in milliseconds
     virtual void send(std::string message) = 0;
     virtual void close() = 0;
     virtual readyStateValues getReadyState() = 0;

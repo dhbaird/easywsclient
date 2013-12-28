@@ -107,7 +107,7 @@ socket_t hostname_connect(std::string hostname, int port) {
 class _DummyWebSocket : public easywsclient::WebSocket
 {
   public:
-    void poll() { }
+    void poll(int timeout) { }
     void send(std::string message) { }
     void close() { } 
     void _dispatch(Callback & callable) { }
@@ -178,8 +178,28 @@ class _RealWebSocket : public easywsclient::WebSocket
       return readyState;
     }
 
-    void poll() {
-        if (readyState == CLOSED) { return; }
+    void poll(int timeout) { // timeout in milliseconds
+        if (readyState == CLOSED) {
+            if (timeout > 0) {
+                timeval tv = { timeout/1000, (timeout%1000) * 1000 };
+                select(0, NULL, NULL, NULL, &tv);
+            }
+            return;
+        }
+        if (timeout > 0) {
+            fd_set rfds;
+            fd_set wfds;
+            timeval tv = { timeout/1000, (timeout%1000) * 1000 };
+            FD_ZERO(&rfds);
+            FD_ZERO(&wfds);
+            FD_SET(sockfd, &rfds);
+            if (txbuf.size()) { FD_SET(sockfd, &wfds); }
+            #ifdef _WIN32
+            select(0, &rfds, &wfds, NULL, &tv);
+            #else
+            select(sockfd + 1, &rfds, &wfds, NULL, &tv);
+            #endif
+        }
         while (true) {
             // FD_ISSET(0, &rfds) will be true
             int N = rxbuf.size();
