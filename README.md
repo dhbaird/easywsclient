@@ -37,7 +37,9 @@ static pointer from_url(std::string url);
 static pointer create_dummy();
 
 // Function to perform actual network send()/recv() I/O:
-void poll();
+// (note: if all you need is to recv()/dispatch() messages, then timeout can be
+// used to block until a message arrives)
+void poll(int timeout = 0);
 
 // Receive a message, and pass it to callable(). Really, this just looks at
 // a buffer (filled up by poll()) and decodes any messages in the buffer.
@@ -51,8 +53,8 @@ void dispatch(Callable callable);
 // later):
 void send(std::string message);
 
-// Close the WebSocket (N.B. - this is an abrupt/rude message at the moment, as
-// it simply closes the socket without sending an official CLOSE message.)
+// Close the WebSocket (send a CLOSE message over WebSocket, then close() the
+// actual socket when the send buffer becomes empty):
 void close();
 ```
 
