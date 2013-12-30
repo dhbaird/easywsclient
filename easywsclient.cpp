@@ -381,12 +381,16 @@ class _RealWebSocket : public easywsclient::WebSocket
 };
 
 
-easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask) {
+easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, const std::string& origin) {
     char host[128];
     int port;
     char path[128];
     if (url.size() >= 128) {
       fprintf(stderr, "ERROR: url size limit exceeded: %s\n", url.c_str());
+      return NULL;
+    }
+    if (origin.size() >= 200) {
+      fprintf(stderr, "ERROR: origin size limit exceeded: %s\n", origin.c_str());
       return NULL;
     }
     if (false) { }
@@ -426,6 +430,9 @@ easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask) 
         }
         snprintf(line, 256, "Upgrade: websocket\r\n"); ::send(sockfd, line, strlen(line), 0);
         snprintf(line, 256, "Connection: Upgrade\r\n"); ::send(sockfd, line, strlen(line), 0);
+        if (!origin.empty()) {
+            snprintf(line, 256, "Origin: %s\r\n", origin.c_str()); ::send(sockfd, line, strlen(line), 0);
+        }
         snprintf(line, 256, "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"); ::send(sockfd, line, strlen(line), 0);
         snprintf(line, 256, "Sec-WebSocket-Version: 13\r\n"); ::send(sockfd, line, strlen(line), 0);
         snprintf(line, 256, "\r\n"); ::send(sockfd, line, strlen(line), 0);
@@ -463,12 +470,12 @@ WebSocket::pointer WebSocket::create_dummy() {
 }
 
 
-WebSocket::pointer WebSocket::from_url(const std::string& url) {
-    return ::from_url(url, true);
+WebSocket::pointer WebSocket::from_url(const std::string& url, const std::string& origin) {
+    return ::from_url(url, true, origin);
 }
 
-WebSocket::pointer WebSocket::from_url_no_mask(const std::string& url) {
-    return ::from_url(url, false);
+WebSocket::pointer WebSocket::from_url_no_mask(const std::string& url, const std::string& origin) {
+    return ::from_url(url, false, origin);
 }
 
 
