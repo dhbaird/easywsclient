@@ -37,6 +37,9 @@
         typedef __int64 int64_t;
         typedef unsigned __int64 uint64_t;
     #endif
+    #define socketerrno WSAGetLastError()
+    #define SOCKET_EAGAIN_EINPROGRESS WSAEINPROGRESS
+    #define SOCKET_EWOULDBLOCK WSAEWOULDBLOCK
 #else
     #include <fcntl.h>
     #include <netdb.h>
@@ -60,6 +63,10 @@
         #define SOCKET_ERROR   (-1)
     #endif
     #define closesocket(s) ::close(s)
+    #include <errno.h>
+    #define socketerrno errno
+    #define SOCKET_EAGAIN_EINPROGRESS EAGAIN
+    #define SOCKET_EWOULDBLOCK EWOULDBLOCK
 #endif
 
 #include <vector>
@@ -191,15 +198,15 @@ class _RealWebSocket : public easywsclient::WebSocket
             rxbuf.resize(N + 1500);
             ret = recv(sockfd, (char*)&rxbuf[0] + N, 1500, 0);
             if (false) { }
-            else if (ret < 0) {
+            else if (ret < 0 && (socketerrno == SOCKET_EWOULDBLOCK || socketerrno == SOCKET_EAGAIN_EINPROGRESS)) {
                 rxbuf.resize(N);
                 break;
             }
-            else if (ret == 0) {
+            else if (ret <= 0) {
                 rxbuf.resize(N);
                 closesocket(sockfd);
                 readyState = CLOSED;
-                fprintf(stderr, "Connection closed!\n");
+                fputs(ret < 0 ? "Connection error!\n" : "Connection closed!\n", stderr);
                 break;
             }
             else {
@@ -208,8 +215,19 @@ class _RealWebSocket : public easywsclient::WebSocket
         }
         while (txbuf.size()) {
             int ret = ::send(sockfd, (char*)&txbuf[0], txbuf.size(), 0);
-            if (ret > 0) { txbuf.erase(txbuf.begin(), txbuf.begin() + ret); }
-            else { break; }
+            if (false) { } // ??
+            else if (ret < 0 && (socketerrno == SOCKET_EWOULDBLOCK || socketerrno == SOCKET_EAGAIN_EINPROGRESS)) {
+                break;
+            }
+            else if (ret <= 0) {
+                closesocket(sockfd);
+                readyState = CLOSED;
+                fputs(ret < 0 ? "Connection error!\n" : "Connection closed!\n", stderr);
+                break;
+            }
+            else {
+                txbuf.erase(txbuf.begin(), txbuf.begin() + ret);
+            }
         }
         if (!txbuf.size() && readyState == CLOSING) {
             closesocket(sockfd);
