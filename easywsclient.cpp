@@ -69,7 +69,7 @@
 
 namespace { // private module-only namespace
 
-socket_t hostname_connect(std::string hostname, int port) {
+socket_t hostname_connect(const std::string& hostname, int port) {
     struct addrinfo hints;
     struct addrinfo *result;
     struct addrinfo *p;
@@ -108,10 +108,10 @@ class _DummyWebSocket : public easywsclient::WebSocket
 {
   public:
     void poll(int timeout) { }
-    void send(std::string message) { }
+    void send(const std::string& message) { }
     void close() { } 
     void _dispatch(Callback & callable) { }
-    readyStateValues getReadyState() { return CLOSED; }
+    readyStateValues getReadyState() const { return CLOSED; }
 };
 
 
@@ -174,7 +174,7 @@ class _RealWebSocket : public easywsclient::WebSocket
     _RealWebSocket(socket_t sockfd, bool useMask) : sockfd(sockfd), readyState(OPEN), useMask(useMask) {
     }
 
-    readyStateValues getReadyState() {
+    readyStateValues getReadyState() const {
       return readyState;
     }
 
@@ -312,7 +312,7 @@ class _RealWebSocket : public easywsclient::WebSocket
         }
     }
 
-    void send(std::string message) {
+    void send(const std::string& message) {
         // TODO:
         // Masking key should (must) be derived from a high quality random
         // number generator, to mitigate attacks on non-WebSocket friendly
@@ -381,7 +381,7 @@ class _RealWebSocket : public easywsclient::WebSocket
 };
 
 
-easywsclient::WebSocket::pointer from_url(std::string url, bool useMask) {
+easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask) {
     char host[128];
     int port;
     char path[128];
@@ -463,11 +463,11 @@ WebSocket::pointer WebSocket::create_dummy() {
 }
 
 
-WebSocket::pointer WebSocket::from_url(std::string url) {
+WebSocket::pointer WebSocket::from_url(const std::string& url) {
     return ::from_url(url, true);
 }
 
-WebSocket::pointer WebSocket::from_url_no_mask(std::string url) {
+WebSocket::pointer WebSocket::from_url_no_mask(const std::string& url) {
     return ::from_url(url, false);
 }
 
