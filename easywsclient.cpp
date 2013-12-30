@@ -1,11 +1,8 @@
-#ifdef _MSC_VER
-    // _CRT_SECURE_NO_WARNINGS for sscanf errors in MSVC2013 Express
-    #define _CRT_SECURE_NO_WARNINGS
-#endif
-
-#include "easywsclient.hpp"
 
 #ifdef _WIN32
+    #if defined(_MSC_VER) && !defined(_CRT_SECURE_NO_WARNINGS)
+        #define _CRT_SECURE_NO_WARNINGS // _CRT_SECURE_NO_WARNINGS for sscanf errors in MSVC2013 Express
+    #endif
     #ifndef WIN32_LEAN_AND_MEAN
         #define WIN32_LEAN_AND_MEAN
     #endif
@@ -62,10 +59,13 @@
     #ifndef SOCKET_ERROR
         #define SOCKET_ERROR   (-1)
     #endif
+    #define closesocket(s) ::close(s)
 #endif
 
 #include <vector>
 #include <string>
+
+#include "easywsclient.hpp"
 
 namespace { // private module-only namespace
 
@@ -92,11 +92,7 @@ socket_t hostname_connect(const std::string& hostname, int port) {
         if (connect(sockfd, p->ai_addr, p->ai_addrlen) != SOCKET_ERROR) {
             break;
         }
-#ifdef _WIN32
         closesocket(sockfd);
-#else
-        close(sockfd);
-#endif
         sockfd = INVALID_SOCKET;
     }
     freeaddrinfo(result);
@@ -156,14 +152,6 @@ class _RealWebSocket : public easywsclient::WebSocket
         uint8_t masking_key[4];
     };
 
-    inline int close(socket_t sockfd) {
-#ifdef _WIN32
-        return ::closesocket(sockfd);
-#else
-        return ::close(sockfd);
-#endif
-    }
-
     std::vector<uint8_t> rxbuf;
     std::vector<uint8_t> txbuf;
 
@@ -194,22 +182,14 @@ class _RealWebSocket : public easywsclient::WebSocket
             FD_ZERO(&wfds);
             FD_SET(sockfd, &rfds);
             if (txbuf.size()) { FD_SET(sockfd, &wfds); }
-            #ifdef _WIN32
-            select(0, &rfds, &wfds, NULL, &tv);
-            #else
             select(sockfd + 1, &rfds, &wfds, NULL, &tv);
-            #endif
         }
         while (true) {
             // FD_ISSET(0, &rfds) will be true
             int N = rxbuf.size();
             ssize_t ret;
             rxbuf.resize(N + 1500);
-#ifdef _WIN32
             ret = recv(sockfd, (char*)&rxbuf[0] + N, 1500, 0);
-#else
-            ret = recv(sockfd, &rxbuf[0] + N, 1500, 0);
-#endif
             if (false) { }
             else if (ret < 0) {
                 rxbuf.resize(N);
@@ -217,7 +197,7 @@ class _RealWebSocket : public easywsclient::WebSocket
             }
             else if (ret == 0) {
                 rxbuf.resize(N);
-                close(sockfd);
+                closesocket(sockfd);
                 readyState = CLOSED;
                 fprintf(stderr, "Connection closed!\n");
                 break;
@@ -227,17 +207,12 @@ class _RealWebSocket : public easywsclient::WebSocket
             }
         }
         while (txbuf.size()) {
-            int ret;
-#ifdef _WIN32
-            ret = ::send(sockfd, (char*)&txbuf[0], txbuf.size(), 0);
-#else
-            ret = ::send(sockfd, &txbuf[0], txbuf.size(), 0);
-#endif
+            int ret = ::send(sockfd, (char*)&txbuf[0], txbuf.size(), 0);
             if (ret > 0) { txbuf.erase(txbuf.begin(), txbuf.begin() + ret); }
             else { break; }
         }
         if (!txbuf.size() && readyState == CLOSING) {
-            close(sockfd);
+            closesocket(sockfd);
             readyState = CLOSED;
         }
     }
@@ -300,7 +275,7 @@ class _RealWebSocket : public easywsclient::WebSocket
             if (false) { }
             else if (ws.opcode == wsheader_type::TEXT_FRAME && ws.fin) {
                 if (ws.mask) { for (size_t i = 0; i != ws.N; ++i) { rxbuf[i+ws.header_size] ^= ws.masking_key[i&0x3]; } }
-                std::string data(rxbuf.begin()+ws.header_size, rxbuf.begin()+ws.header_size+ws.N);
+                std::string data(rxbuf.begin()+ws.header_size, rxbuf.begin()+ws.header_size+(size_t)ws.N);
                 callable((const std::string) data);
             }
             else if (ws.opcode == wsheader_type::PING) { }
@@ -308,7 +283,7 @@ class _RealWebSocket : public easywsclient::WebSocket
             else if (ws.opcode == wsheader_type::CLOSE) { close(); }
             else { fprintf(stderr, "ERROR: Got unexpected WebSocket message.\n"); close(); }
 
-            rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size+ws.N);
+            rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size+(size_t)ws.N);
         }
     }
 
