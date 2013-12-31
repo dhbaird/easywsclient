@@ -91,11 +91,15 @@ Example
     node example-server.js
 
     # Build and launch the client:
-    g++ example-client.cpp -o example-client
+    g++ -c easywsclient.cpp -o easywsclient.o
+    g++ -c example-client.cpp -o example-client.o
+    g++ example-client.o easywsclient.o -o example-client
     ./example-client
 
     # ...or build and launch a C++11 client:
-    g++ -std=gnu++0x example-client-cpp11.cpp -o example-client-cpp11
+    g++ -std=gnu++0x -c easywsclient.cpp -o easywsclient.o
+    g++ -std=gnu++0x -c example-client-cpp11.cpp -o example-client-cpp11.o
+    g++ example-client-cpp11.o easywsclient.o -o example-client-cpp11
     ./example-client-cpp11
 
     # Expect the output from example-client:
