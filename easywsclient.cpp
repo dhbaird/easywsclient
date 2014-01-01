@@ -112,6 +112,7 @@ class _DummyWebSocket : public easywsclient::WebSocket
   public:
     void poll(int timeout) { }
     void send(const std::string& message) { }
+    void sendPing() { }
     void close() { } 
     void _dispatch(Callback & callable) { }
     readyStateValues getReadyState() const { return CLOSED; }
@@ -305,7 +306,15 @@ class _RealWebSocket : public easywsclient::WebSocket
         }
     }
 
+    void sendPing() {
+        sendData(wsheader_type::PING, std::string());
+    }
+
     void send(const std::string& message) {
+        sendData(wsheader_type::TEXT_FRAME, message);
+    }
+
+    void sendData(wsheader_type::opcode_type type, const std::string& message) {
         // TODO:
         // Masking key should (must) be derived from a high quality random
         // number generator, to mitigate attacks on non-WebSocket friendly
@@ -316,7 +325,7 @@ class _RealWebSocket : public easywsclient::WebSocket
         std::vector<uint8_t> header;
         uint64_t message_size = message.size();
         header.assign(2 + (message_size >= 126 ? 2 : 0) + (message_size >= 65536 ? 6 : 0) + (useMask ? 4 : 0), 0);
-        header[0] = 0x80 | wsheader_type::TEXT_FRAME;
+        header[0] = 0x80 | type;
         if (false) { }
         else if (message_size < 126) {
             header[1] = (message_size & 0xff) | (useMask ? 0x80 : 0);

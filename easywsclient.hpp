@@ -26,6 +26,7 @@ class WebSocket {
     virtual ~WebSocket() { }
     virtual void poll(int timeout = 0) = 0; // timeout in milliseconds
     virtual void send(const std::string& message) = 0;
+    virtual void sendPing() = 0;
     virtual void close() = 0;
     virtual readyStateValues getReadyState() const = 0;
     template<class Callable>
