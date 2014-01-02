@@ -297,7 +297,11 @@ class _RealWebSocket : public easywsclient::WebSocket
                 std::string data(rxbuf.begin()+ws.header_size, rxbuf.begin()+ws.header_size+(size_t)ws.N);
                 callable((const std::string) data);
             }
-            else if (ws.opcode == wsheader_type::PING) { }
+            else if (ws.opcode == wsheader_type::PING) {
+                if (ws.mask) { for (size_t i = 0; i != ws.N; ++i) { rxbuf[i+ws.header_size] ^= ws.masking_key[i&0x3]; } }
+                std::string data(rxbuf.begin()+ws.header_size, rxbuf.begin()+ws.header_size+(size_t)ws.N);
+                sendData(wsheader_type::PONG, data);
+            }
             else if (ws.opcode == wsheader_type::PONG) { }
             else if (ws.opcode == wsheader_type::CLOSE) { close(); }
             else { fprintf(stderr, "ERROR: Got unexpected WebSocket message.\n"); close(); }
