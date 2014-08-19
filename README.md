@@ -90,22 +90,31 @@ Example
     # Launch a test server:
     node example-server.js
 
-    # Build and launch the client:
+    # Build and launch the (secure) client:
     g++ -c easywsclient.cpp -o easywsclient.o
     g++ -c example-client.cpp -o example-client.o
-    g++ example-client.o easywsclient.o -o example-client
+    g++ -c example-secure-client.cpp -o example-secure-client.o
+    g++ example-client.o easywsclient.o -o example-client -lssl -lcrypto
+    g++ example-secure-client.o easywsclient.o -o example-secure-client -lssl -lcrypto
     ./example-client
 
     # ...or build and launch a C++11 client:
     g++ -std=gnu++0x -c easywsclient.cpp -o easywsclient.o
     g++ -std=gnu++0x -c example-client-cpp11.cpp -o example-client-cpp11.o
-    g++ example-client-cpp11.o easywsclient.o -o example-client-cpp11
+    g++ example-client-cpp11.o easywsclient.o -o example-client-cpp11 -lssl -lcrypto
     ./example-client-cpp11
 
     # Expect the output from example-client:
     Connected to: ws://localhost:8126/foo
     >>> galaxy
     >>> world
+    
+    # Launch and expect the output from example-secure-client:
+    ./example-secure-client 
+    easywsclient: connecting: ssl=true, host=echo.websocket.org port=443 path=/
+    Connected to: wss://echo.websocket.org
+    >>> hello
+    >>> goodbye
 
 Threading
 =========
