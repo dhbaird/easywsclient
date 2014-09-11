@@ -1,50 +1,83 @@
-#ifndef EASYWSCLIENT_HPP_20120819_MIOFVASDTNUASZDQPLFD
-#define EASYWSCLIENT_HPP_20120819_MIOFVASDTNUASZDQPLFD
+/*
+ * -----------------------------------------------------
+ * Easy WebSocket Client by: D.H. Baird  &  P.B. Plugge.
+ * -----------------------------------------------------
+ *
+ * Examples below use a client that is created like:
+ * easywsclient client;
+ *
+ *
+ * Examples to connect to a websocket server:
+ *
+ * client.Connect("http://hostname.com:8888");
+ * client.Connect("http://hostname.com",8888);
+ * client.Connect(std::string("http://hostname.com:8888"));
+ * client.Connect(std::string("http://hostname.com"),8888);
+ * client.Connect("192.168.1.1",282);
+ *
+ * Any form should work, this is called easy websockets man!
+ *
+ * Same with sending:
+ *
+ * client.Send("hey man!");
+ * client.Send(std::string("yes i am here!"));
+ *
+ * When connected we need to check periodicly for messages.
+ *
+ * This function returns true if the message was filled with the received message.
+ * It returns false if there was no new message.
+ *
+ *	bool client.Receive(message);
+ *
+ */
 
-// This code comes from:
-// https://github.com/dhbaird/easywsclient
-//
-// To get the latest version:
-// wget https://raw.github.com/dhbaird/easywsclient/master/easywsclient.hpp
-// wget https://raw.github.com/dhbaird/easywsclient/master/easywsclient.cpp
+#ifndef EASYWSCLIENT_HPP
+#define EASYWSCLIENT_HPP
 
-#include <string>
+#include <string>			// string
+#include <vector>			// vector
+#include <stdint.h>			// uint64_t uint8_t
 
-namespace easywsclient {
 
-class WebSocket {
-  public:
-    typedef WebSocket * pointer;
-    typedef enum readyStateValues { CLOSING, CLOSED, CONNECTING, OPEN } readyStateValues;
+class easywsclient {
+private:
+	// State of the socket.
+	int readyState;
 
-    // Factories:
-    static pointer create_dummy();
-    static pointer from_url(const std::string& url, const std::string& origin = std::string());
-    static pointer from_url_no_mask(const std::string& url, const std::string& origin = std::string());
+	// socket descriptor.
+	int sockfd;
 
-    // Interfaces:
-    virtual ~WebSocket() { }
-    virtual void poll(int timeout = 0) = 0; // timeout in milliseconds
-    virtual void send(const std::string& message) = 0;
-    virtual void sendPing() = 0;
-    virtual void close() = 0;
-    virtual readyStateValues getReadyState() const = 0;
-    template<class Callable>
-    void dispatch(Callable callable) { // N.B. this is compatible with both C++11 lambdas, functors and C function pointers
-        struct _Callback : public Callback {
-            Callable& callable;
-            _Callback(Callable& callable) : callable(callable) { }
-            void operator()(const std::string& message) { callable(message); }
-        };
-        _Callback callback(callable);
-        _dispatch(callback);
-    }
+	bool useMask;
 
-  protected:
-    struct Callback { virtual void operator()(const std::string& message) = 0; };
-    virtual void _dispatch(Callback& callable) = 0;
+	// the receive buffer.
+	std::vector<uint8_t> rxbuf;
+
+	// the send buffer.
+	std::vector<uint8_t> txbuf;
+
+	void SendData(int type, const std::string& message);
+	int ConnectSocket(std::string &url, int port = -1);
+public:
+	easywsclient();
+	~easywsclient();
+
+	// Connect in any way you want.
+	int Connect(const std::string &url, int port = -1);
+
+	// Disconnect.
+	void Disconnect(void);
+
+	// returns true if we are connected.
+	bool Connected(void);
+
+	// Various functions to send stuff.
+	void SendPing(void);
+	void Send(const std::string& message);
+
+	// check if we received a message.
+	bool Receive(std::string &message);
 };
 
-} // namespace easywsclient
 
-#endif /* EASYWSCLIENT_HPP_20120819_MIOFVASDTNUASZDQPLFD */
+#endif
+
