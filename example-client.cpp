@@ -1,46 +1,43 @@
+/* -----------------------------------------------------
+ * Easy WebSocket Client by: D.H. Baird  &  P.B. Plugge.
+ * -----------------------------------------------------
+ */
+
+#include <iostream>
 #include "easywsclient.hpp"
-//#include "easywsclient.cpp" // <-- include only if you don't want compile separately
-#ifdef _WIN32
-#pragma comment( lib, "ws2_32" )
-#include <WinSock2.h>
-#endif
-#include <assert.h>
-#include <stdio.h>
-#include <string>
 
-using easywsclient::WebSocket;
-static WebSocket::pointer ws = NULL;
 
-void handle_message(const std::string & message)
-{
-    printf(">>> %s\n", message.c_str());
-    if (message == "world") { ws->close(); }
-}
+using namespace std;
 
-int main()
-{
-#ifdef _WIN32
-    INT rc;
-    WSADATA wsaData;
 
-    rc = WSAStartup(MAKEWORD(2, 2), &wsaData);
-    if (rc) {
-        printf("WSAStartup Failed.\n");
-        return 1;
-    }
-#endif
+int main(){
+	easywsclient client;
+	string msg;
 
-    ws = WebSocket::from_url("ws://localhost:8126/foo");
-    assert(ws);
-    ws->send("goodbye");
-    ws->send("hello");
-    while (ws->getReadyState() != WebSocket::CLOSED) {
-      ws->poll();
-      ws->dispatch(handle_message);
-    }
-    delete ws;
-#ifdef _WIN32
-    WSACleanup();
-#endif
-    return 0;
+	cout << "connecting...\n";
+	client.Connect("ws://chartingexpert.com:8999");
+
+	cout << "sending message..\n";
+	client.Send("hi there!");
+
+	sleep(1);
+
+	cout << "receiving message\n";
+	if (client.Receive(msg)){
+		cout << "received: " << msg << "\n";
+	}
+
+	if (!client.Receive(msg)){
+		cout << "nothing more to receive\n";
+	}
+
+	cout << "Disconnecting\n";
+	client.Disconnect();
+
+	cout << "sending message..\n";
+	client.Send("This cannot be send!");
+
+	cout << "Done\n";
+
+	return 0;
 }
