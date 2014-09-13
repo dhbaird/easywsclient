@@ -162,6 +162,7 @@ class _RealWebSocket : public easywsclient::WebSocket
 
     std::vector<uint8_t> rxbuf;
     std::vector<uint8_t> txbuf;
+    std::vector<uint8_t> receivedData;
 
     socket_t sockfd;
     readyStateValues readyState;
@@ -292,10 +293,17 @@ class _RealWebSocket : public easywsclient::WebSocket
 
             // We got a whole message, now do something with it:
             if (false) { }
-            else if (ws.opcode == wsheader_type::TEXT_FRAME && ws.fin) {
+            else if (ws.opcode == wsheader_type::TEXT_FRAME 
+                || ws.opcode == wsheader_type::CONTINUATION
+            ) {
                 if (ws.mask) { for (size_t i = 0; i != ws.N; ++i) { rxbuf[i+ws.header_size] ^= ws.masking_key[i&0x3]; } }
-                std::string data(rxbuf.begin()+ws.header_size, rxbuf.begin()+ws.header_size+(size_t)ws.N);
-                callable((const std::string) data);
+                receivedData.insert(receivedData.end(), rxbuf.begin()+ws.header_size, rxbuf.begin()+ws.header_size+(size_t)ws.N);// just feed
+                if (ws.fin) {
+                    std::string data(receivedData.begin(), receivedData.end());
+                    callable((const std::string) data);
+                    receivedData.erase(receivedData.begin(), receivedData.end());
+                    std::vector<uint8_t> ().swap(receivedData);// free memory
+                }
             }
             else if (ws.opcode == wsheader_type::PING) {
                 if (ws.mask) { for (size_t i = 0; i != ws.N; ++i) { rxbuf[i+ws.header_size] ^= ws.masking_key[i&0x3]; } }
