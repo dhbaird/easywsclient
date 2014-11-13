@@ -1,9 +1,12 @@
 CXXFLAGS = -std=gnu++0x -Wall
 LDLIBS = -lstdc++
-.PHONY: all clean
+.PHONY: all clean test
 all: example-client example-client-cpp11
 clean:
 	-rm  example-client example-client-cpp11 *.o
+	cd test; $(MAKE) clean
+test:
+	cd test; $(MAKE) test
 testserver: node_modules
 	node example-server.js
 node_modules:
