@@ -25,6 +25,19 @@ implementation file. It can serve as a cruft-free concise reference. You
 are most welcome to use this code as a reference for creating alternative
 implementations that may better suit your needs.
 
+News
+====
+
+*2014-12-06*
+Binary frames now supported. Closes issue #38.  Automated integration testing
+is now supported by running `make test`. The test suite expects GoogleTest to
+be installed at `/usr/src/gtest` (`apt-get install libgtest-dev` does the
+trick). The test suite uses C++14 (for lambda capture expressions), and thus it
+will not work on older compilers. Note that easywsclient itself still
+restricted to C++98/C++03, and will continue to build with older compilers.
+
+
+
 Usage
 =====
 

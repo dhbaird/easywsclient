@@ -11,30 +11,9 @@
 #include <utility>
 #include <iostream>
 #include <sstream>
+#include <gtest/gtest.h>
 
 using easywsclient::WebSocket;
-
-template<class T>
-std::string toString(const T& t, size_t maxLen=32)
-{
-    std::stringstream ss;
-    ss << t;
-    std::string s = ss.str();
-    if (s.length() > maxLen) {
-        return s.substr(0, maxLen-3) + "...";
-    }
-    else {
-        return s;
-    }
-}
-
-#define ASSERT_EQ(a, b) \
-    if ((a) != (b)) { \
-        std::cout << "Failed: " #a " == " #b "\n" \
-                  << "Expected: " << toString(b) << "\n" \
-                  << "  Actual: " << toString(a) << "\n"; \
-        throw std::runtime_error("test assertion failed"); \
-    }
 
 namespace {
 
@@ -88,16 +67,11 @@ std::string makeString(size_t length)
 
 }
 
-void test()
+TEST(easywsclient, textFramesWork)
 {
-#ifdef _WIN32
-    WSAInit wsaInit;
-#endif
-    KillServer killServer;
 
     std::unique_ptr<WebSocket> ws(WebSocket::from_url("ws://localhost:8123/echoWithSize"));
     assert(ws);
-
     ws->send("four");
     std::string message;
     while (ws->getReadyState() != WebSocket::CLOSED) {
@@ -112,7 +86,13 @@ void test()
         }
     }
     ASSERT_EQ("4\nfour", message);
+    ws->close(); // hmmm... shouldn't this be RAII?
+}
 
+TEST(easywsclient, longTextFramesWork)
+{
+    std::unique_ptr<WebSocket> ws(WebSocket::from_url("ws://localhost:8123/echoWithSize"));
+    assert(ws);
     std::vector<std::pair<std::string, std::string> > v;
     v.emplace_back(    "0",     makeString(0));
     v.emplace_back(    "1",     makeString(1));
@@ -134,7 +114,6 @@ void test()
     v.emplace_back("65535", makeString(65535));
     v.emplace_back("65536", makeString(65536));
     v.emplace_back("65537", makeString(65537));
-
     for (auto i = v.begin(); i != v.end(); ++i) {
         ws->send(i->second);
         std::string message;
@@ -151,17 +130,36 @@ void test()
         }
         ASSERT_EQ(i->first + "\n" + i->second, message);
     }
-
-    ws->close();
+    ws->close(); // hmmm... shouldn't this be RAII?
 }
 
-int main()
+TEST(easywsclient, binaryFramesWork)
 {
-    try {
-        test();
+    std::unique_ptr<WebSocket> ws(WebSocket::from_url("ws://localhost:8123/binaryEchoWithSize"));
+    assert(ws);
+    ws->sendBinary(std::vector<uint8_t>({1, 2, 3}));
+    std::vector<uint8_t> message;
+    while (ws->getReadyState() != WebSocket::CLOSED) {
+        bool gotMessage = false;
+        ws->poll();
+        ws->dispatchBinary([gotMessageOut=&gotMessage, messageOut=&message, ws=ws.get()](const std::vector<uint8_t>& message) {
+            *gotMessageOut = true;
+            *messageOut = message;
+        });
+        if (gotMessage) {
+            break;
+        }
     }
-    catch (...) {
-        throw;
-    }
-    return 0;
+    ASSERT_EQ(std::vector<uint8_t>({0, 0, 0, 3, 1, 2, 3}), message);
+    ws->close(); // hmmm... shouldn't this be RAII?
+}
+
+int main(int argc, char **argv)
+{
+#ifdef _WIN32
+    WSAInit wsaInit;
+#endif
+    KillServer killServer; // RAII to ensure server gets terminated when tests terminate
+    ::testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }
