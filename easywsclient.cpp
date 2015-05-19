@@ -274,7 +274,7 @@ class _RealWebSocket : public easywsclient::WebSocket
             ws.N0 = (data[1] & 0x7f);
             ws.header_size = 2 + (ws.N0 == 126? 2 : 0) + (ws.N0 == 127? 8 : 0) + (ws.mask? 4 : 0);
             if (rxbuf.size() < ws.header_size) { return; /* Need: ws.header_size - rxbuf.size() */ }
-            int i;
+            int i = 0;
             if (ws.N0 < 126) {
                 ws.N = ws.N0;
                 i = 2;
