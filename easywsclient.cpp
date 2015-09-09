@@ -188,15 +188,25 @@ class _RealWebSocket : public easywsclient::WebSocket
             }
             return;
         }
-        if (timeout > 0) {
+        if (timeout != 0) {
             fd_set rfds;
             fd_set wfds;
+            fd_set efds;
             timeval tv = { timeout/1000, (timeout%1000) * 1000 };
             FD_ZERO(&rfds);
             FD_ZERO(&wfds);
+            FD_ZERO(&efds);
             FD_SET(sockfd, &rfds);
             if (txbuf.size()) { FD_SET(sockfd, &wfds); }
-            select(sockfd + 1, &rfds, &wfds, NULL, &tv);
+            FD_SET(sockfd, &efds);
+            select(sockfd + 1, &rfds, &wfds, &efds, timeout > 0 ? &tv : 0);
+            if (FD_ISSET(sockfd, &efds))
+            {
+                closesocket(sockfd);
+                readyState = CLOSED;
+                fputs("Connection error!\n", stderr);
+                return;
+            }
         }
         while (true) {
             // FD_ISSET(0, &rfds) will be true
