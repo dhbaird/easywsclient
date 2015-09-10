@@ -50,9 +50,9 @@ static pointer from_url(std::string url);
 static pointer create_dummy();
 
 // Function to perform actual network send()/recv() I/O:
-// (note: if all you need is to recv()/dispatch() messages, then timeout can be
-// used to block until a message arrives. By default, when timeout is 0, poll()
-// will not block at all.)
+// (note: if all you need is to recv()/dispatch() messages, then a
+// negative timeout can be used to block until a message arrives.
+// By default, when timeout is 0, poll() will not block at all.)
 void poll(int timeout = 0); // timeout in milliseconds
 
 // Receive a message, and pass it to callable(). Really, this just looks at
