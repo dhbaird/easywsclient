@@ -188,7 +188,7 @@ class _RealWebSocket : public easywsclient::WebSocket
             }
             return;
         }
-        if (timeout > 0) {
+        if (timeout != 0) {
             fd_set rfds;
             fd_set wfds;
             timeval tv = { timeout/1000, (timeout%1000) * 1000 };
@@ -196,7 +196,7 @@ class _RealWebSocket : public easywsclient::WebSocket
             FD_ZERO(&wfds);
             FD_SET(sockfd, &rfds);
             if (txbuf.size()) { FD_SET(sockfd, &wfds); }
-            select(sockfd + 1, &rfds, &wfds, NULL, &tv);
+            select(sockfd + 1, &rfds, &wfds, 0, timeout > 0 ? &tv : 0);
         }
         while (true) {
             // FD_ISSET(0, &rfds) will be true
