@@ -425,12 +425,19 @@ class _RealWebSocket : public easywsclient::WebSocket
 };
 
 
-easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, const std::string& origin) {
+easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, const std::string& origin, const std::string& proxy) {
     char host[128];
+    char prxhost[128];
     int port;
+    int prxport;
     char path[128];
+    int conntype;
     if (url.size() >= 128) {
       fprintf(stderr, "ERROR: url size limit exceeded: %s\n", url.c_str());
+      return NULL;
+    }
+    if (proxy.size() >= 128) {
+      fprintf(stderr, "ERROR: proxy size limit exceeded: %s\n", proxy.c_str());
       return NULL;
     }
     if (origin.size() >= 200) {
@@ -454,8 +461,19 @@ easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, 
         fprintf(stderr, "ERROR: Could not parse WebSocket url: %s\n", url.c_str());
         return NULL;
     }
-    fprintf(stderr, "easywsclient: connecting: host=%s port=%d path=/%s\n", host, port, path);
-    socket_t sockfd = hostname_connect(host, port);
+    socket_t sockfd;
+    if (!proxy.empty() && sscanf(proxy.c_str(), "%[^:/]:%d", prxhost, &prxport) == 2) {
+        fprintf(stderr, "easywsclient: connecting to proxy: host=%s port=%d\n", prxhost, prxport);
+        sockfd = hostname_connect(prxhost, prxport);
+        conntype = 1;
+    } else if(proxy.empty()){
+        fprintf(stderr, "easywsclient: connecting: host=%s port=%d path=/%s\n", host, port, path);
+        sockfd = hostname_connect(host, port);
+        conntype = 0;
+    } else {
+        fprintf(stderr, "ERROR: Could not parse proxy ip: %s\n", proxy.c_str());
+        return NULL;
+    }
     if (sockfd == INVALID_SOCKET) {
         fprintf(stderr, "Unable to connect to %s:%d\n", host, port);
         return NULL;
@@ -464,7 +482,30 @@ easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, 
         // XXX: this should be done non-blocking,
         char line[256];
         int status;
+        int prxstatus;
         int i;
+        int h;
+        if(conntype == 1){
+            snprintf(line, 256, "CONNECT %s:%d HTTP/1.0\r\n", host, port); ::send(sockfd, line, strlen(line), 0);
+            snprintf(line, 256, "\r\n"); ::send(sockfd, line, strlen(line), 0);
+            for (i = 0; i < 2 || (i < 255 && line[i-2] != '\r' && line[i-1] != '\n'); ++i) {
+                if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; }
+            }
+            line[i] = 0;
+            if (i == 255) {
+                fprintf(stderr, "ERROR: Got invalid status line connecting to proxy: %s\n", proxy.c_str());
+                return NULL;
+            }
+            /* Some proxies send HTTP/1.0 and some others HTTP/1.1 */
+            if (sscanf(line, "HTTP/1.%d %d", &h, &prxstatus) != 2 || prxstatus != 200) {
+                fprintf(stderr, "ERROR: Got bad status connecting to proxy %s: %s", proxy.c_str(), line);
+                return NULL;
+            }
+            while (true) {
+                for (i = 0; i < 2 || (i < 255 && line[i-2] != '\r' && line[i-1] != '\n'); ++i) { if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; } }
+                if (line[0] == '\r' && line[1] == '\n') { break; }
+            }
+        }
         snprintf(line, 256, "GET /%s HTTP/1.1\r\n", path); ::send(sockfd, line, strlen(line), 0);
         if (port == 80) {
             snprintf(line, 256, "Host: %s\r\n", host); ::send(sockfd, line, strlen(line), 0);
@@ -514,12 +555,12 @@ WebSocket::pointer WebSocket::create_dummy() {
 }
 
 
-WebSocket::pointer WebSocket::from_url(const std::string& url, const std::string& origin) {
-    return ::from_url(url, true, origin);
+WebSocket::pointer WebSocket::from_url(const std::string& url, const std::string& origin, const std::string& proxy) {
+    return ::from_url(url, true, origin, proxy);
 }
 
-WebSocket::pointer WebSocket::from_url_no_mask(const std::string& url, const std::string& origin) {
-    return ::from_url(url, false, origin);
+WebSocket::pointer WebSocket::from_url_no_mask(const std::string& url, const std::string& origin, const std::string& proxy) {
+    return ::from_url(url, false, origin, proxy);
 }
 
 
