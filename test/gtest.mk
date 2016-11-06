@@ -6,7 +6,7 @@ LDLIBS += -lpthread
 LDLIBS += -lstdc++
 vpath %.cc $(GTEST_PATH)/src
 
-GTEST_FOUND = $(ls -d $(GTEST_PATH)/src/main.cc)
+GTEST_FOUND = $(shell ls -d $(GTEST_PATH)/src/gtest-all.cc)
 ifeq (,$(GTEST_FOUND))
   $(info )
   $(info Error:)
@@ -17,5 +17,8 @@ ifeq (,$(GTEST_FOUND))
   $(error Please setup GTEST_PATH so that gtest-all.cc can be found.)
 endif
 
+.PHONY: all gtest_clean
 all:
+gtest_clean:
+	-rm gtest-all.o
 gtest-all.o: CXXFLAGS += -I$(GTEST_PATH)
