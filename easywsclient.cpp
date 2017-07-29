@@ -410,7 +410,10 @@ class _RealWebSocket : public easywsclient::WebSocket
         txbuf.insert(txbuf.end(), header.begin(), header.end());
         txbuf.insert(txbuf.end(), message_begin, message_end);
         if (useMask) {
-            for (size_t i = 0; i != message_size; ++i) { *(txbuf.end() - message_size + i) ^= masking_key[i&0x3]; }
+            size_t message_offset = txbuf.size() - message_size;
+            for (size_t i = 0; i != message_size; ++i) {
+                txbuf[message_offset + i] ^= masking_key[i&0x3];
+            }
         }
     }
 
