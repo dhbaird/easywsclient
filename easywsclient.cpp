@@ -457,7 +457,7 @@ easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, 
         fprintf(stderr, "ERROR: Could not parse WebSocket url: %s\n", url.c_str());
         return NULL;
     }
-    fprintf(stderr, "easywsclient: connecting: host=%s port=%d path=/%s\n", host, port, path);
+    //fprintf(stderr, "easywsclient: connecting: host=%s port=%d path=/%s\n", host, port, path);
     socket_t sockfd = hostname_connect(host, port);
     if (sockfd == INVALID_SOCKET) {
         fprintf(stderr, "Unable to connect to %s:%d\n", host, port);
@@ -501,7 +501,7 @@ easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, 
 #else
     fcntl(sockfd, F_SETFL, O_NONBLOCK);
 #endif
-    fprintf(stderr, "Connected to: %s\n", url.c_str());
+    //fprintf(stderr, "Connected to: %s\n", url.c_str());
     return easywsclient::WebSocket::pointer(new _RealWebSocket(sockfd, useMask));
 }
 
