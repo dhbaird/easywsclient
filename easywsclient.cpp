@@ -79,7 +79,7 @@ using easywsclient::BytesCallback_Imp;
 
 namespace { // private module-only namespace
 
-socket_t hostname_connect(const std::string& hostname, int port) {
+socket_t hostname_connect(const std::string& hostname, int port, int conntimeout) {
     struct addrinfo hints;
     struct addrinfo *result;
     struct addrinfo *p;
@@ -99,12 +99,37 @@ socket_t hostname_connect(const std::string& hostname, int port) {
     {
         sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
         if (sockfd == INVALID_SOCKET) { continue; }
-        if (connect(sockfd, p->ai_addr, p->ai_addrlen) != SOCKET_ERROR) {
+#ifdef _WIN32
+		u_long on = 1;
+		ioctlsocket(sockfd, FIONBIO, &on);
+#else
+		int flags = fcntl(fd, F_GETFL, 0);
+		fcntl(sockfd, F_SETFL, O_NONBLOCK);
+#endif
+
+        if (connect(sockfd, p->ai_addr, p->ai_addrlen) == 0) {
             break;
-        }
+		}else{
+			fd_set wfds;
+			timeval tv = { conntimeout, 0 };
+			FD_ZERO(&wfds);
+			FD_SET(sockfd, &wfds);
+			if (select(sockfd + 1, NULL, &wfds, 0, &tv) > 0) {
+				break;
+			}
+		}
         closesocket(sockfd);
         sockfd = INVALID_SOCKET;
     }
+	if (sockfd != INVALID_SOCKET) {
+#ifdef _WIN32
+		u_long on = 0;
+		ioctlsocket(sockfd, FIONBIO, &on);
+#else
+		flags &= ~O_NONBLOCK;
+		fcntl(sockfd, F_SETFL, flags);
+#endif
+	}
     freeaddrinfo(result);
     return sockfd;
 }
@@ -428,7 +453,7 @@ class _RealWebSocket : public easywsclient::WebSocket
 };
 
 
-easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, const std::string& origin) {
+easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, int conntimeout, const std::string& origin) {
     char host[128];
     int port;
     char path[128];
@@ -458,7 +483,7 @@ easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, 
         return NULL;
     }
     //fprintf(stderr, "easywsclient: connecting: host=%s port=%d path=/%s\n", host, port, path);
-    socket_t sockfd = hostname_connect(host, port);
+    socket_t sockfd = hostname_connect(host, port, conntimeout);
     if (sockfd == INVALID_SOCKET) {
         fprintf(stderr, "Unable to connect to %s:%d\n", host, port);
         return NULL;
@@ -517,12 +542,12 @@ WebSocket::pointer WebSocket::create_dummy() {
 }
 
 
-WebSocket::pointer WebSocket::from_url(const std::string& url, const std::string& origin) {
-    return ::from_url(url, true, origin);
+WebSocket::pointer WebSocket::from_url(const std::string& url, int conntimeout, const std::string& origin) {
+    return ::from_url(url, true, conntimeout, origin);
 }
 
-WebSocket::pointer WebSocket::from_url_no_mask(const std::string& url, const std::string& origin) {
-    return ::from_url(url, false, origin);
+WebSocket::pointer WebSocket::from_url_no_mask(const std::string& url, int conntimeout, const std::string& origin) {
+    return ::from_url(url, false, conntimeout, origin);
 }
 
 
