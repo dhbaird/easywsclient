@@ -10,6 +10,7 @@
 
 #include <string>
 #include <vector>
+#include <cstdint>
 
 namespace easywsclient {
 
@@ -23,8 +24,8 @@ class WebSocket {
 
     // Factories:
     static pointer create_dummy();
-    static pointer from_url(const std::string& url, int conntimeout = 5, const std::string& origin = std::string());
-    static pointer from_url_no_mask(const std::string& url, int conntimeout = 5, const std::string& origin = std::string());
+    static pointer from_url(const std::string& url, const std::string subprotocol=std::string(), int conntimeout = 5, const std::string& origin = std::string());
+    static pointer from_url_no_mask(const std::string& url, const std::string subprotocol=std::string(), int conntimeout = 5, const std::string& origin = std::string());
 
     // Interfaces:
     virtual ~WebSocket() { }
