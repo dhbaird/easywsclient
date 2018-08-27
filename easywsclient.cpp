@@ -71,6 +71,7 @@
 
 #include <vector>
 #include <string>
+#include <ctime>
 
 #include "easywsclient.hpp"
 
@@ -95,6 +96,7 @@ socket_t hostname_connect(const std::string& hostname, int port, int conntimeout
       fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(ret));
       return 1;
     }
+    int flags = 0;
     for(p = result; p != NULL; p = p->ai_next)
     {
         sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol);
@@ -103,19 +105,26 @@ socket_t hostname_connect(const std::string& hostname, int port, int conntimeout
 		u_long on = 1;
 		ioctlsocket(sockfd, FIONBIO, &on);
 #else
-		int flags = fcntl(fd, F_GETFL, 0);
+        flags = fcntl(sockfd, F_GETFL, 0);
 		fcntl(sockfd, F_SETFL, O_NONBLOCK);
 #endif
 
         if (connect(sockfd, p->ai_addr, p->ai_addrlen) == 0) {
             break;
 		}else{
+            fd_set rfds;
 			fd_set wfds;
 			timeval tv = { conntimeout, 0 };
-			FD_ZERO(&wfds);
-			FD_SET(sockfd, &wfds);
-			if (select(sockfd + 1, NULL, &wfds, 0, &tv) > 0) {
-				break;
+            FD_ZERO(&rfds);
+            FD_ZERO(&wfds);
+            FD_SET(sockfd, &rfds);
+            FD_SET(sockfd, &wfds);
+            if (select(sockfd + 1, &rfds, &wfds, 0, &tv) > 0) {
+                if (FD_ISSET(sockfd, &rfds) && FD_ISSET(sockfd, &wfds)){
+
+                }else if(FD_ISSET(sockfd, &wfds)){
+                    break;
+                }
 			}
 		}
         closesocket(sockfd);
@@ -127,7 +136,7 @@ socket_t hostname_connect(const std::string& hostname, int port, int conntimeout
 		ioctlsocket(sockfd, FIONBIO, &on);
 #else
 		flags &= ~O_NONBLOCK;
-		fcntl(sockfd, F_SETFL, flags);
+        fcntl(sockfd, F_SETFL, flags);
 #endif
 	}
     freeaddrinfo(result);
@@ -197,8 +206,9 @@ class _RealWebSocket : public easywsclient::WebSocket
     socket_t sockfd;
     readyStateValues readyState;
     bool useMask;
+    time_t lastRecvPongT;
 
-    _RealWebSocket(socket_t sockfd, bool useMask) : sockfd(sockfd), readyState(OPEN), useMask(useMask) {
+    _RealWebSocket(socket_t sockfd, bool useMask) : sockfd(sockfd), readyState(OPEN), useMask(useMask), lastRecvPongT(time(NULL)) {
     }
 
     readyStateValues getReadyState() const {
@@ -229,12 +239,14 @@ class _RealWebSocket : public easywsclient::WebSocket
             ssize_t ret;
             rxbuf.resize(N + 1500);
             ret = recv(sockfd, (char*)&rxbuf[0] + N, 1500, 0);
+            uint32_t disRecvPong =  time(NULL) - lastRecvPongT;
             if (false) { }
-            else if (ret < 0 && (socketerrno == SOCKET_EWOULDBLOCK || socketerrno == SOCKET_EAGAIN_EINPROGRESS)) {
+            else if (ret < 0 && (socketerrno == SOCKET_EWOULDBLOCK || socketerrno == SOCKET_EAGAIN_EINPROGRESS) && disRecvPong <= 10) {
                 rxbuf.resize(N);
                 break;
             }
-            else if (ret <= 0) {
+            else if (ret <= 0 || disRecvPong > 10 ) {
+				lastRecvPongT = time(NULL);
                 rxbuf.resize(N);
                 closesocket(sockfd);
                 readyState = CLOSED;
@@ -245,6 +257,7 @@ class _RealWebSocket : public easywsclient::WebSocket
                 rxbuf.resize(N + ret);
             }
         }
+        sendPing();
         while (txbuf.size()) {
             int ret = ::send(sockfd, (char*)&txbuf[0], txbuf.size(), 0);
             if (false) { } // ??
@@ -356,7 +369,9 @@ class _RealWebSocket : public easywsclient::WebSocket
                 std::string data(rxbuf.begin()+ws.header_size, rxbuf.begin()+ws.header_size+(size_t)ws.N);
                 sendData(wsheader_type::PONG, data.size(), data.begin(), data.end());
             }
-            else if (ws.opcode == wsheader_type::PONG) { }
+            else if (ws.opcode == wsheader_type::PONG) {
+               lastRecvPongT = time(NULL);
+            }
             else if (ws.opcode == wsheader_type::CLOSE) { close(); }
             else { fprintf(stderr, "ERROR: Got unexpected WebSocket message.\n"); close(); }
 
@@ -453,7 +468,7 @@ class _RealWebSocket : public easywsclient::WebSocket
 };
 
 
-easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, int conntimeout, const std::string& origin) {
+easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, const std::string subprotocol, int conntimeout, const std::string& origin) {
     char host[128];
     int port;
     char path[128];
@@ -506,6 +521,9 @@ easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, 
             snprintf(line, 256, "Origin: %s\r\n", origin.c_str()); ::send(sockfd, line, strlen(line), 0);
         }
         snprintf(line, 256, "Sec-WebSocket-Key: x3JJHMbDL1EzLkh9GBhXDw==\r\n"); ::send(sockfd, line, strlen(line), 0);
+        if (!subprotocol.empty()){
+            snprintf(line, 256, "Sec-WebSocket-Protocol: %s\r\n", subprotocol.c_str()); ::send(sockfd, line, strlen(line), 0);
+        }
         snprintf(line, 256, "Sec-WebSocket-Version: 13\r\n"); ::send(sockfd, line, strlen(line), 0);
         snprintf(line, 256, "\r\n"); ::send(sockfd, line, strlen(line), 0);
         for (i = 0; i < 2 || (i < 255 && line[i-2] != '\r' && line[i-1] != '\n'); ++i) { if (recv(sockfd, line+i, 1, 0) == 0) { return NULL; } }
@@ -542,12 +560,12 @@ WebSocket::pointer WebSocket::create_dummy() {
 }
 
 
-WebSocket::pointer WebSocket::from_url(const std::string& url, int conntimeout, const std::string& origin) {
-    return ::from_url(url, true, conntimeout, origin);
+WebSocket::pointer WebSocket::from_url(const std::string& url, const std::string subprotocol, int conntimeout, const std::string& origin) {
+    return ::from_url(url, true, subprotocol, conntimeout, origin);
 }
 
-WebSocket::pointer WebSocket::from_url_no_mask(const std::string& url, int conntimeout, const std::string& origin) {
-    return ::from_url(url, false, conntimeout, origin);
+WebSocket::pointer WebSocket::from_url_no_mask(const std::string& url, const std::string subprotocol, int conntimeout, const std::string& origin) {
+    return ::from_url(url, false, subprotocol, conntimeout, origin);
 }
 
 
