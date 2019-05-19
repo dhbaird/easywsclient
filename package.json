@@ -16,6 +16,6 @@
     "url": "https://github.com/dhbaird/easywsclient/issues"
   },
   "dependencies": {
-    "ws": "~0.4.31"
+    "ws": "^7.0.0"
   }
 }
