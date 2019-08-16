@@ -8,6 +8,7 @@
 // wget https://raw.github.com/dhbaird/easywsclient/master/easywsclient.hpp
 // wget https://raw.github.com/dhbaird/easywsclient/master/easywsclient.cpp
 
+#include <cstdio>
 #include <string>
 #include <vector>
 
@@ -62,7 +63,11 @@ class WebSocket {
         _dispatchBinary(callback);
     }
 
+    // Sets the C stream where diagnostic messages are written. Set to NULL to disable all output.
+    static void setMessageStream(FILE *stream) { messageStream = stream; }
+
   protected:
+    static FILE* messageStream;
     virtual void _dispatch(Callback_Imp& callable) = 0;
     virtual void _dispatchBinary(BytesCallback_Imp& callable) = 0;
 };
