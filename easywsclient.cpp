@@ -318,7 +318,7 @@ class _RealWebSocket : public easywsclient::WebSocket
 
             if (txbuf.size()) { FD_SET(sockfd, &wfds); }
 
-            select(sockfd + 1, &rfds, &wfds, 0, timeout > 0 ? &tv : 0);
+            select(maxSocket + 1, &rfds, &wfds, nullptr, &tv);
         }
 
         while (true) {
