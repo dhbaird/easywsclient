@@ -52,6 +52,13 @@
     #include <sys/types.h>
     #include <unistd.h>
     #include <stdint.h>
+#ifdef USE_SSL
+    #include <openssl/ssl.h>
+    #include <openssl/conf.h>
+    #include <sstream>
+    #include <memory>
+    #include <stdexcept>
+#endif
     #ifndef _SOCKET_T_DEFINED
         typedef int socket_t;
         #define _SOCKET_T_DEFINED
@@ -123,7 +130,177 @@ class _DummyWebSocket : public easywsclient::WebSocket
     void _dispatch(Callback_Imp & callable) { }
     void _dispatchBinary(BytesCallback_Imp& callable) { }
 };
+#ifdef USE_SSL
+class secureSocket {
+  public:
+    static int verify_callback(int preverify, X509_STORE_CTX* x509_ctx)
+    {
+      int depth = X509_STORE_CTX_get_error_depth(x509_ctx);
+      int err = X509_STORE_CTX_get_error(x509_ctx);
 
+      X509* cert = X509_STORE_CTX_get_current_cert(x509_ctx);
+      X509_NAME* iname = cert ? X509_get_issuer_name(cert) : NULL;
+      X509_NAME* sname = cert ? X509_get_subject_name(cert) : NULL;
+
+      return preverify;
+    }
+
+    secureSocket (char* host, const int& port, char* path)
+    {
+      long res = 1;
+      std::string  hostname(host);
+
+      OPENSSL_init_ssl(0, NULL);
+
+      const SSL_METHOD* method = SSLv23_method();
+      if(!(NULL != method)) {throw std::invalid_argument("Error, handle failure1\n");}
+
+      ctx = SSL_CTX_new(method);
+      if(!(ctx != NULL)) {throw std::invalid_argument("Error, handle failure2\n");}
+
+      /* Cannot fail ??? */
+      SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER, verify_callback);
+
+      /* Cannot fail ??? */
+      SSL_CTX_set_verify_depth(ctx, 4);
+
+      /* Cannot fail ??? */
+      const long flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_COMPRESSION;
+      SSL_CTX_set_options(ctx, flags);
+
+      res = SSL_CTX_load_verify_locations(ctx, "/etc/pki/tls/cert.pem", NULL);
+      if(!(1 == res)) {throw std::invalid_argument("Error, handle failure3\n");}
+
+      web = BIO_new_ssl_connect(ctx);
+      if(!(web != NULL)) {throw std::invalid_argument("Error, handle failure\n");}
+
+      hostname += ":";
+      hostname += std::to_string(port);
+      res = BIO_set_conn_hostname(web, hostname.c_str());
+      if(!(1 == res)) {throw std::invalid_argument("Error, handle failure\n");}
+
+      BIO_get_ssl(web, &ssl);
+      if(!(ssl != NULL)) {throw std::invalid_argument("Error, handle failure\n");}
+
+      const std::string PREFERRED_CIPHERS =
+        "ECDHE-ECDSA-AES128-GCM-SHA256 ECDHE-ECDSA-AES256-GCM-SHA384 ECDHE-ECDSA-AES128-SHA "
+        "ECDHE-ECDSA-AES256-SHA ECDHE-ECDSA-AES128-SHA256 ECDHE-ECDSA-AES256-SHA384 "
+        "ECDHE-RSA-AES128-GCM-SHA256 ECDHE-RSA-AES256-GCM-SHA384 ECDHE-RSA-AES128-SHA "
+        "ECDHE-RSA-AES256-SHA ECDHE-RSA-AES128-SHA256 ECDHE-RSA-AES256-SHA384 "
+        "DHE-RSA-AES128-GCM-SHA256 DHE-RSA-AES256-GCM-SHA384 DHE-RSA-AES128-SHA "
+        "DHE-RSA-AES256-SHA DHE-RSA-AES128-SHA256 DHE-RSA-AES256-SHA256 AES128-SHA";
+
+      res = SSL_set_cipher_list(ssl, PREFERRED_CIPHERS.c_str());
+      if(!(1 == res)) {throw std::invalid_argument("Error, handle failure\n");}
+
+      res = SSL_set_tlsext_host_name(ssl, host);
+      if(!(1 == res)) {throw std::invalid_argument("Error, handle failure\n");}
+
+      out = BIO_new_fp(stdout, BIO_NOCLOSE);
+      if(!(NULL != out)) {throw std::invalid_argument("Error, handle failure\n");}
+
+      res = BIO_do_connect(web);
+      if(!(1 == res)) {throw std::invalid_argument("Error, handle failure\n");}
+
+      res = BIO_do_handshake(web);
+      if(!(1 == res)) {throw std::invalid_argument("Error, handle failure\n");}
+
+      /* Step 1: verify a server certificate was presented during the negotiation */
+      X509* cert = SSL_get_peer_certificate(ssl);
+      if(cert) { X509_free(cert); } /* Free immediately */
+      if(NULL == cert) {throw std::invalid_argument("Error, handle failure\n");}
+
+      /* Step 2: verify the result of chain verification */
+      /* Verification performed according to RFC 4158    */
+      res = SSL_get_verify_result(ssl);
+      if(!(X509_V_OK == res)) {throw std::invalid_argument("Error, handle failure\n");}
+
+      /* Step 3: hostname verification */
+      /* An exercise left to the reader */
+
+      /*
+wss://stream.binance.com:9443/ws/bnbbtc@depth
+GET /ws/bnbbtc@depth HTTP/1.1
+Host: stream.binance.com
+Upgrade: websocket
+Connection: Upgrade
+Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==
+Origin: http://example.com
+Sec-WebSocket-Protocol: chat, superchat
+Sec-WebSocket-Version: 13
+*/
+      std::stringstream line;
+      line << "GET /" << path <<  " HTTP/1.1\r\n";
+      line << "Host: " << host <<" \r\n";
+      line << "Upgrade: websocket\r\n";
+      line << "Connection: Upgrade\r\n";
+      line << "Sec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n";
+      line << "Origin: 192.168.1.14\r\n";
+      line << "Sec-WebSocket-Protocol: chat, superchat\r\n";
+      line << "Sec-WebSocket-Version: 13\r\n\n";
+
+      BIO_puts(web, line.str().c_str());
+      BIO_puts(out, "\n");
+
+      int len = 0;
+      printf("Returning pointer to function\n");
+      //  do
+      //  {
+      char buff[1536] = {};
+      len = BIO_read(web, buff, sizeof(buff));
+      //    printf("**DEBUT BUFFER**\n");
+      //    printf("\nbuffer :%02x\n",buff[0]);
+      //    printf("**FIN BUFFER**\n");
+
+      if(len > 0)
+        BIO_write(out, buff, len);
+      printf("**LEAVING BUFFER**\n");
+      //  } while (len > 0 || BIO_should_retry(web));
+
+      //  if(out)
+      //    BIO_free(out);
+
+      //  if(web != NULL)
+      //    BIO_free_all(web);
+
+      //  if(NULL != ctx)
+      //    SSL_CTX_free(ctx);
+      //  printf("returned from function!\n");
+      // return nullptr;
+    }
+    ~secureSocket () {
+      printf("\nFreeing all resources\n");
+       if(out)
+         BIO_free(out);
+
+       if(web != NULL)
+         BIO_free_all(web);
+
+       if(NULL != ctx)
+         SSL_CTX_free(ctx);
+
+       if(NULL != ssl)
+       {
+         SSL_shutdown(ssl);
+         SSL_free(ssl);
+       }
+    }
+
+    void read( std::vector<uint8_t>& buffer, int offset, int bufferSize, ssize_t &sizeRead) {
+      sizeRead = BIO_read(web, (char*)&buffer[0]+offset, bufferSize);
+    }
+    void send( std::vector<uint8_t>& buffer, int* sizeRead) {
+      BIO_write_ex(web, (void*)buffer.data(), buffer.size(), (size_t*)sizeRead);
+    }
+
+  private:
+
+    SSL_CTX* ctx = nullptr;
+    BIO* web = nullptr, *out = nullptr;
+    SSL* ssl = nullptr;
+    /* data */
+};
+#endif
 
 class _RealWebSocket : public easywsclient::WebSocket
 {
@@ -170,9 +347,13 @@ class _RealWebSocket : public easywsclient::WebSocket
     std::vector<uint8_t> receivedData;
 
     socket_t sockfd;
+#ifdef USE_SSL
+    std::unique_ptr<secureSocket> sslSocket;
+#endif
     readyStateValues readyState;
     bool useMask;
     bool isRxBad;
+    bool isSecure;
 
     _RealWebSocket(socket_t sockfd, bool useMask)
             : sockfd(sockfd)
@@ -180,6 +361,17 @@ class _RealWebSocket : public easywsclient::WebSocket
             , useMask(useMask)
             , isRxBad(false) {
     }
+
+#ifdef USE_SSL
+    _RealWebSocket( std::unique_ptr<secureSocket> sslSocket, bool useMask)
+            : sslSocket(std::move(sslSocket))
+            , readyState(OPEN)
+            , useMask(useMask)
+            , isRxBad(false)
+            , isSecure(true)
+    {
+    }
+#endif
 
     readyStateValues getReadyState() const {
       return readyState;
@@ -208,7 +400,11 @@ class _RealWebSocket : public easywsclient::WebSocket
             int N = rxbuf.size();
             ssize_t ret;
             rxbuf.resize(N + 1500);
-            ret = recv(sockfd, (char*)&rxbuf[0] + N, 1500, 0);
+#ifdef USE_SSL
+              sslSocket->read(rxbuf, N, 1500, ret);
+#else
+              ret = recv(sockfd, (char*)&rxbuf[0] + N, 1500, 0);
+#endif
             if (false) { }
             else if (ret < 0 && (socketerrno == SOCKET_EWOULDBLOCK || socketerrno == SOCKET_EAGAIN_EINPROGRESS)) {
                 rxbuf.resize(N);
@@ -223,10 +419,16 @@ class _RealWebSocket : public easywsclient::WebSocket
             }
             else {
                 rxbuf.resize(N + ret);
+                break;
             }
         }
         while (txbuf.size()) {
-            int ret = ::send(sockfd, (char*)&txbuf[0], txbuf.size(), 0);
+          int ret=0;
+#ifdef USE_SSL
+              sslSocket->send(txbuf, &ret);
+#else
+              ret = ::send(sockfd, (char*)&txbuf[0], txbuf.size(), 0);
+#endif
             if (false) { } // ??
             else if (ret < 0 && (socketerrno == SOCKET_EWOULDBLOCK || socketerrno == SOCKET_EAGAIN_EINPROGRESS)) {
                 break;
@@ -453,6 +655,14 @@ class _RealWebSocket : public easywsclient::WebSocket
 };
 
 
+#ifdef USE_SSL
+easywsclient::WebSocket::pointer from_secure_url(char* host, const int& port, char* path) {
+  std::unique_ptr<secureSocket> ssl_socket = std::make_unique<secureSocket>(host, port, path);
+  return easywsclient::WebSocket::pointer(new _RealWebSocket( std::move(ssl_socket), true));
+
+}
+#endif
+
 easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, const std::string& origin) {
     char host[512];
     int port;
@@ -466,6 +676,21 @@ easywsclient::WebSocket::pointer from_url(const std::string& url, bool useMask, 
       return NULL;
     }
     if (false) { }
+#ifdef USE_SSL
+    else if (sscanf(url.c_str(), "wss://%[^:/]/%s", host, path) == 2){
+      port=443;
+      return ::from_secure_url(host, port, path);
+    }
+    else if (sscanf(url.c_str(), "wss://%[^:/]:%d/%s", host, &port, path) == 3) {
+      return ::from_secure_url(host, port, path);
+    }
+    else if (sscanf(url.c_str(), "wss://%s", host) == 1){
+      path[0] = '/';
+      path[1] = '\0';
+      port=443;
+      return ::from_secure_url(host, port, path);
+    }
+#endif
     else if (sscanf(url.c_str(), "ws://%[^:/]:%d/%s", host, &port, path) == 3) {
     }
     else if (sscanf(url.c_str(), "ws://%[^:/]/%s", host, path) == 2) {
