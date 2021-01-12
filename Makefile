@@ -1,5 +1,10 @@
+ifndef USE_SSL
 CXXFLAGS = -std=gnu++0x -Wall
 LDLIBS = -lstdc++
+else
+CXXFLAGS = -std=gnu++2a -Wall -DUSE_SSL
+LDLIBS = -lstdc++ -lssl -lcrypto
+endif
 .PHONY: all clean test
 all: example-client example-client-cpp11
 clean:

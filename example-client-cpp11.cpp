@@ -2,8 +2,7 @@
 // g++ -std=gnu++0x example-client-cpp11.cpp -o example-client-cpp11
 #include "easywsclient.hpp"
 //#include "easywsclient.cpp" // <-- include only if you don't want compile separately
-#ifdef _WIN32
-#pragma comment( lib, "ws2_32" )
+#ifdef _WIN32 #pragma comment( lib, "ws2_32" )
 #include <WinSock2.h>
 #endif
 #include <assert.h>
@@ -25,10 +24,11 @@ int main()
     }
 #endif
 
-    std::unique_ptr<WebSocket> ws(WebSocket::from_url("ws://localhost:8126/foo"));
+    // std::unique_ptr<WebSocket> ws(WebSocket::from_url("ws://localhost:8126/foo"));
+    std::unique_ptr<WebSocket> ws(WebSocket::from_url("wss://stream.binance.com:9443/ws/bnbbtc@depth"));
     assert(ws);
-    ws->send("goodbye");
-    ws->send("hello");
+    // ws->send("goodbye");
+    // ws->send("hello");
     while (ws->getReadyState() != WebSocket::CLOSED) {
         WebSocket::pointer wsp = &*ws; // <-- because a unique_ptr cannot be copied into a lambda
         ws->poll();
