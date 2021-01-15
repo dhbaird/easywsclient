@@ -19,7 +19,7 @@ struct BytesCallback_Imp { virtual void operator()(const std::vector<uint8_t>& m
 class WebSocket {
   public:
     typedef WebSocket * pointer;
-    typedef enum readyStateValues { CLOSING, CLOSED, CONNECTING, OPEN } readyStateValues;
+    typedef enum readyStateValues { CLOSING, CLOSED, OPEN } readyStateValues;
 
     // Factories:
     static pointer create_dummy();
@@ -29,6 +29,7 @@ class WebSocket {
     // Interfaces:
     virtual ~WebSocket() { }
     virtual void poll(int timeout = 0) = 0; // timeout in milliseconds
+    virtual void interrupt() = 0; // interrupt polling
     virtual void send(const std::string& message) = 0;
     virtual void sendBinary(const std::string& message) = 0;
     virtual void sendBinary(const std::vector<uint8_t>& message) = 0;
