@@ -182,6 +182,13 @@ class _RealWebSocket : public easywsclient::WebSocket
             , isRxBad(false) {
     }
 
+    ~_RealWebSocket() {
+        // If the socket has not been closed by the time the destructor is run
+        // then we ensure it is closed. This might cause an unclean close as
+        // described in RFC 6455, but this is better than leaking file descriptors.
+        terminateConnection();
+    }
+
     readyStateValues getReadyState() const {
       return readyState;
     }
@@ -217,8 +224,7 @@ class _RealWebSocket : public easywsclient::WebSocket
             }
             else if (ret <= 0) {
                 rxbuf.resize(N);
-                closesocket(sockfd);
-                readyState = CLOSED;
+                terminateConnection();
                 fputs(ret < 0 ? "Connection error!\n" : "Connection closed!\n", stderr);
                 break;
             }
@@ -233,8 +239,7 @@ class _RealWebSocket : public easywsclient::WebSocket
                 break;
             }
             else if (ret <= 0) {
-                closesocket(sockfd);
-                readyState = CLOSED;
+                terminateConnection();
                 fputs(ret < 0 ? "Connection error!\n" : "Connection closed!\n", stderr);
                 break;
             }
@@ -243,8 +248,7 @@ class _RealWebSocket : public easywsclient::WebSocket
             }
         }
         if (!txbuf.size() && readyState == CLOSING) {
-            closesocket(sockfd);
-            readyState = CLOSED;
+            terminateConnection();
         }
     }
 
@@ -450,6 +454,28 @@ class _RealWebSocket : public easywsclient::WebSocket
         std::vector<uint8_t> header(closeFrame, closeFrame+6);
         txbuf.insert(txbuf.end(), header.begin(), header.end());
     }
+
+    // Immediately terminates the connection to the remote host, if connected.
+    //
+    // This ensures resources and open socket file descriptors are cleaned up.
+    // Typically this is called once the server closes the underlying socket
+    // connection, however, it can also be used by the client to force an
+    // unclean close of the connection.
+    //
+    // This method does not throw and it is safe to call multiple times.
+    void terminateConnection() {
+        if (sockfd != INVALID_SOCKET) {
+            closesocket(sockfd);
+            sockfd = INVALID_SOCKET;
+            readyState = CLOSED;
+        }
+    }
+
+private:
+
+    // WebSockets do not support being copy constructed or copy assigned.
+    _RealWebSocket(const _RealWebSocket&);
+    _RealWebSocket& operator=(const _RealWebSocket&);
 
 };
 
