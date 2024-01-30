@@ -8,6 +8,7 @@
 // wget https://raw.github.com/dhbaird/easywsclient/master/easywsclient.hpp
 // wget https://raw.github.com/dhbaird/easywsclient/master/easywsclient.cpp
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -23,8 +24,16 @@ class WebSocket {
 
     // Factories:
     static pointer create_dummy();
-    static pointer from_url(const std::string& url, const std::string& origin = std::string());
-    static pointer from_url_no_mask(const std::string& url, const std::string& origin = std::string());
+    static pointer from_url(
+        const std::string& url,
+        const std::string& origin = std::string(),
+        const std::map<std::string, std::string>& extraHeaders = std::map<std::string, std::string>()
+    );
+    static pointer from_url_no_mask(
+        const std::string& url,
+        const std::string& origin = std::string(),
+        const std::map<std::string, std::string>& extraHeaders = std::map<std::string, std::string>()
+    );
 
     // Interfaces:
     virtual ~WebSocket() { }
