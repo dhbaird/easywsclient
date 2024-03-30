@@ -25,7 +25,11 @@ int main()
     }
 #endif
 
-    std::unique_ptr<WebSocket> ws(WebSocket::from_url("ws://localhost:8126/foo"));
+    std::map<std::string, std::string> headers;
+    headers.insert(std::make_pair("Authorization", "Bearer 123"));
+    std::string origin = "https://example.com";
+
+    std::unique_ptr<WebSocket> ws(WebSocket::from_url("ws://localhost:8126/foo", origin, headers));
     assert(ws);
     ws->send("goodbye");
     ws->send("hello");
