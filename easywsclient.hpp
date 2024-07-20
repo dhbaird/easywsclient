@@ -12,9 +12,10 @@
 #include <vector>
 
 namespace easywsclient {
+typedef enum callbackType { MESSAGE, PONG, CLOSE } callbackType;
 
-struct Callback_Imp { virtual void operator()(const std::string& message) = 0; };
-struct BytesCallback_Imp { virtual void operator()(const std::vector<uint8_t>& message) = 0; };
+struct Callback_Imp { virtual void operator()(callbackType type, const std::string& message) = 0; };
+struct BytesCallback_Imp { virtual void operator()(callbackType type, const std::vector<uint8_t>& message) = 0; };
 
 class WebSocket {
   public:
@@ -43,7 +44,7 @@ class WebSocket {
         struct _Callback : public Callback_Imp {
             Callable& callable;
             _Callback(Callable& callable) : callable(callable) { }
-            void operator()(const std::string& message) { callable(message); }
+            void operator()(callbackType type, const std::string& message) { callable(type, message); }
         };
         _Callback callback(callable);
         _dispatch(callback);
@@ -56,7 +57,7 @@ class WebSocket {
         struct _Callback : public BytesCallback_Imp {
             Callable& callable;
             _Callback(Callable& callable) : callable(callable) { }
-            void operator()(const std::vector<uint8_t>& message) { callable(message); }
+            void operator()(callbackType type, const std::vector<uint8_t>& message) { callable(type, message); }
         };
         _Callback callback(callable);
         _dispatchBinary(callback);

@@ -259,9 +259,9 @@ class _RealWebSocket : public easywsclient::WebSocket
         {
             Callback_Imp& callable;
             CallbackAdapter(Callback_Imp& callable) : callable(callable) { }
-            void operator()(const std::vector<uint8_t>& message) {
+            void operator()(easywsclient::callbackType type, const std::vector<uint8_t>& message) {
                 std::string stringMessage(message.begin(), message.end());
-                callable(stringMessage);
+                callable(type, stringMessage);
             }
         };
         CallbackAdapter bytesCallback(callable);
@@ -347,7 +347,7 @@ class _RealWebSocket : public easywsclient::WebSocket
                 if (ws.mask) { for (size_t i = 0; i != ws.N; ++i) { rxbuf[i+ws.header_size] ^= ws.masking_key[i&0x3]; } }
                 receivedData.insert(receivedData.end(), rxbuf.begin()+ws.header_size, rxbuf.begin()+ws.header_size+(size_t)ws.N);// just feed
                 if (ws.fin) {
-                    callable((const std::vector<uint8_t>) receivedData);
+                    callable(easywsclient::callbackType::MESSAGE, (const std::vector<uint8_t>) receivedData);
                     receivedData.erase(receivedData.begin(), receivedData.end());
                     std::vector<uint8_t> ().swap(receivedData);// free memory
                 }
@@ -357,8 +357,13 @@ class _RealWebSocket : public easywsclient::WebSocket
                 std::string data(rxbuf.begin()+ws.header_size, rxbuf.begin()+ws.header_size+(size_t)ws.N);
                 sendData(wsheader_type::PONG, data.size(), data.begin(), data.end());
             }
-            else if (ws.opcode == wsheader_type::PONG) { }
-            else if (ws.opcode == wsheader_type::CLOSE) { close(); }
+            else if (ws.opcode == wsheader_type::PONG) { 
+                callable(easywsclient::callbackType::PONG, {});
+            }
+            else if (ws.opcode == wsheader_type::CLOSE) {
+                callable(easywsclient::callbackType::CLOSE, {});
+                close();
+            }
             else { fprintf(stderr, "ERROR: Got unexpected WebSocket message.\n"); close(); }
 
             rxbuf.erase(rxbuf.begin(), rxbuf.begin() + ws.header_size+(size_t)ws.N);
