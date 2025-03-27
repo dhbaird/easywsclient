@@ -206,7 +206,7 @@ class _RealWebSocket : public easywsclient::WebSocket
         }
         while (true) {
             // FD_ISSET(0, &rfds) will be true
-            int N = rxbuf.size();
+            size_t N = rxbuf.size();
             ssize_t ret;
             rxbuf.resize(N + 1500);
             ret = recv(sockfd, (char*)&rxbuf[0] + N, 1500, 0);
@@ -227,7 +227,7 @@ class _RealWebSocket : public easywsclient::WebSocket
             }
         }
         while (txbuf.size()) {
-            int ret = ::send(sockfd, (char*)&txbuf[0], txbuf.size(), 0);
+            ssize_t ret = ::send(sockfd, (char*)&txbuf[0], txbuf.size(), 0);
             if (false) { } // ??
             else if (ret < 0 && (socketerrno == SOCKET_EWOULDBLOCK || socketerrno == SOCKET_EAGAIN_EINPROGRESS)) {
                 break;
